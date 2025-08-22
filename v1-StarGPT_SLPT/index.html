@@ -1,0 +1,2296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleeper Roster & Ownership Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Product+Sans:wght@100;200;300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans:100,200,300,400,500,600,700" rel="stylesheet">
+    
+        <style>
+      /* --- THEME & FOUNDATION --- */
+      :root {
+        --font-sans: 'Product Sans', 'Google Sans', 'Quicksand', sans-serif;
+    
+        /* New Color Palette */
+        --color-bg: #0D0E1B;
+        --color-bg-light: #1E1F30;
+        --color-panel-bg: rgba(22, 24, 43, 0.1);
+        --color-panel-border: rgba(128, 138, 189, 0.2);
+        --color-panel-border-glow: rgba(128, 138, 189, 0.4);
+    
+        --color-text-primary: #EAEBF0;
+        --color-text-secondary: #9096C0;
+        --color-text-tertiary: #5F6795;
+    
+        --color-accent-primary: #766DFF;
+        --color-accent-primary-glow: rgba(118, 109, 255, 0.5);
+        --color-accent-secondary: #42C2FF;
+        --color-accent-secondary-glow: rgba(66, 194, 255, 0.5);
+        --color-accent-trade-win: #00F5A0;
+        --color-accent-trade-lose: #FF47A6;
+    
+        /* Position Colors */
+        --pos-qb: #FF3A75;
+        --pos-rb: #00EBC7;
+        --pos-wr: #58A7FF;
+        --pos-te: #B469FF;
+        --pos-flx: #A855F7;
+        --pos-sflx: #FF3A75;
+        --pos-bn: #64748b;
+        --pos-tx: #808ea3;
+    
+        /* Other vars */
+        --panel-border-radius: 12px;
+        --card-border-radius: 8px;
+        --glow-strength: 0.6; /* FIXED: give it a value so parsing continues */
+    
+        /* Orb 3 (shared) — using lengths so gradient center = orb center */
+        --orb3-left: 330px;
+        --orb3-top: 23rem;
+        --orb3-size: 19rem;
+      }
+    
+      html, body {
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background-color: #0b0b12;
+        color: var(--color-text-primary);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow-x: hidden;
+        position: relative;
+      }
+
+      .content-wrapper {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      main#content {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+      }
+    
+      /* --- Background Orbs and Noise Overlay --- */
+      #background-container {
+        position: fixed; /* EDITED: Changed from absolute to fixed */
+        inset: 0;
+        z-index: -10;
+        pointer-events: none;
+        overflow: hidden; 
+      }
+    
+      #background-gradient {
+        position: absolute;
+        inset: 0;
+        background-image:
+          radial-gradient(1200px 800px at -10% -20%, #7300FF59, transparent),
+          radial-gradient(700px 600px at 110% 10%, #00EBFF40, transparent),
+          /* Orb-3’s gradient center is computed from the orb’s box center */
+          radial-gradient(
+            300px 300px
+            at calc(var(--orb3-left) + (var(--orb3-size) / 2))
+               calc(var(--orb3-top)  + (var(--orb3-size) / 2)),
+            #FFAF0020, transparent
+          );
+      }
+    
+      .orb {
+        position: absolute;
+        border-radius: 9999px;
+        filter: blur(38px);
+      }
+    
+      #orb-1 {
+        left: -6rem; top: 2.5rem; height: 18rem; width: 18rem;
+        background: linear-gradient(135deg, rgba(115,0,255,0.6), rgba(0,235,255,0.4));
+        opacity: 0.35;
+      }
+    
+      #orb-2 {
+        right: -60px; top: 6rem; height: 16rem; width: 16rem;
+        background: linear-gradient(135deg, rgba(0,235,255,0.5), rgba(255,175,0,0.4));
+        opacity: 0.30;
+      }
+    
+      #orb-3 {
+        /* match the same vars used in the gradient center above */
+        left: var(--orb3-left);
+        top:  var(--orb3-top);
+        height: var(--orb3-size);
+        width:  var(--orb3-size);
+        /* No translate here; center handled via calc() in the gradient */
+        background: linear-gradient(135deg, #FFAF008C, #7300FF80);
+        opacity: 0.48;
+        border-radius: 9999px;
+        filter: blur(38px);
+        position: absolute;
+      }
+    
+      #noise-overlay {
+        position: fixed; /* EDITED: Changed from absolute to fixed */
+        inset: 0;
+        z-index: -9;
+        pointer-events: none;
+        opacity: 0.35;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3e%3cfilter id='n'%3e%3cfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='2' stitchTiles='stitch'/%3e%3cfeColorMatrix type='saturate' values='0'/%3e%3cfeComponentTransfer%3e%3cfeFuncA type='table' tableValues='0 0 0 0 0.08'/%3e%3c/feComponentTransfer%3e%3c/filter%3e%3crect width='100%25' height='100%25' filter='url(%23n)'/%3e%3c/svg%3e");
+      }
+
+
+        /* --- SCROLLBARS --- */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-text-tertiary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-text-secondary);
+        }
+
+        /* --- GENERAL UI --- */
+        #loading, #welcome-screen { 
+            text-align: center; 
+            padding: 4rem 2rem; 
+            font-size: 1.2rem; 
+            color: var(--color-text-secondary); 
+            max-width: 600px;
+            margin: 2rem auto;
+        }
+
+        #welcome-screen, #loading {
+            background: var(--color-panel-bg);
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--panel-border-radius);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        #welcome-screen h2 { 
+            font-size: 1.5rem; 
+            font-weight: 700; 
+            color: var(--color-text-primary); 
+            margin-bottom: 0.5rem; 
+        }
+
+        #header-container {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 0.1rem 0rem 0.25rem 0rem;
+            border-radius: var(--panel-border-radius);
+            /* EDITED: Changed background to be more transparent to see bg */
+            background: linear-gradient(180deg, rgba(11, 11, 18, 0.2) 10%, transparent 100%);
+        }
+
+        /* --- UTILITY CLASSES --- */
+        .glass-panel {
+            background: var(--color-panel-bg);
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--panel-border-radius);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        /* --- HEADER & CONTROLS (3-Row Redesign) --- */
+        .app-header {
+            padding: 0.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .header-row {
+            display: flex;
+            flex-wrap: nowrap; /* Prevent wrapping */
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            overflow-x: auto; /* Allow horizontal scrolling if needed */
+            padding-bottom: 2px; /* space for scrollbar */
+        }
+        .header-row:nth-child(2), .header-row:nth-child(3) {
+            border-top: 1px solid var(--color-panel-border);
+            padding-top: 0.25rem;
+        }
+
+        #contextual-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        #contextual-controls.hidden {
+            display: none;
+        }
+
+        /* Row 1 */
+        .username-area {
+            flex-grow: 1;
+            min-width: 120px; /* prevent it from getting too small */
+            max-width: 150px;
+        }
+        #usernameInput {
+            /* EDITED: Increased transparency */
+            background: var(--color-panel-bg);
+            border: 1px solid var(--color-panel-border);
+            border-radius: 8px;
+            color: var(--color-text-primary);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        #usernameInput:focus {
+            outline: none;
+            border-color: var(--color-accent-primary);
+            box-shadow: 0 0 var(--glow-strength) var(--color-accent-primary-glow);
+        }
+
+        /* Row 2 */
+        .custom-select-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-width: 120px;
+            max-width: 150px;
+        }
+        #leagueSelect {
+            appearance: none;
+             /* EDITED: Increased transparency */
+            background-color: rgba(30, 31, 48, 0.1);
+            border: 1px solid var(--color-panel-border);
+            border-radius: 8px;
+            padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+            font-size: 0.7rem;
+            color: var(--color-text-primary);
+            width: 100%;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .custom-select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            top: 50%;
+            right: 0.5rem;
+            transform: translateY(-50%) scale(0.6);
+            color: var(--color-text-secondary);
+            pointer-events: none;
+        }
+
+        /* Row 3 */
+        .compare-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        #positional-filters {
+            /* This will no longer grow, allowing the parent to center it */
+            justify-content: center;
+        }
+
+        /* High-End Glass Buttons & Segmented Controls v3 */
+        .primary-switcher, .secondary-switcher, #positional-filters {
+            display: flex;
+            border: 1px solid var(--color-panel-border);
+            border-radius: 8px;
+            padding: 0.15rem;
+            gap: 0.15rem;
+            flex-shrink: 0;
+            /* EDITED: Increased transparency */
+            background: linear-gradient(to bottom, rgba(0,0,0,0.01), rgba(0,0,0,0.1));
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+        }
+
+        /* --- Base Button Styles --- */
+        .primary-switcher button, .secondary-switcher button, .filter-btn {
+            padding: 0.2rem 0.6rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: 1px solid transparent;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            color: var(--color-text-secondary);
+            text-shadow: 0 0 2px rgba(0,0,0,0.2);
+        }
+        /* Primary buttons are bolder */
+        .primary-switcher button {
+            font-weight: 700;
+            font-size: 0.8rem;
+        }
+
+        /* --- Hover States --- */
+        .primary-switcher button:hover, .secondary-switcher button:hover, .filter-btn:hover {
+            color: var(--color-text-primary);
+            background: var(--color-panel-bg);
+        }
+
+        /* --- Active & Counterpart States (EDITED) --- */
+
+        #fetchRostersButton.active {
+            color: #fff;
+            border-color: var(--color-accent-secondary); /* Blue */
+            box-shadow: 0 0 8px var(--color-accent-secondary-glow);
+        }
+
+        #fetchOwnershipButton.active {
+            color: #fff;
+            border-color: #D90059; /* Pink */
+            box-shadow: 0 0 8px #D90059;
+        }
+
+        #positionalViewBtn.active {
+            color: #fff;
+            border-color: var(--color-accent-primary); /* Purple */
+            box-shadow: 0 0 8px var(--color-accent-primary-glow);
+        }
+
+        #depthChartViewBtn.active {
+            color: #fff;
+            border-color: var(--color-accent-trade-win); /* Green */
+            box-shadow: 0 0 8px rgba(0, 245, 160, 0.5);
+        }
+
+        /* Counterpart buttons are dimmed */
+        .primary-switcher button.counterpart-active, .secondary-switcher button.counterpart-active {
+            color: var(--color-text-tertiary);
+            background: transparent;
+        }
+        .primary-switcher button.counterpart-active:hover, .secondary-switcher button.counterpart-active:hover {
+            color: var(--color-text-secondary);
+        }
+
+
+        /* Filter Buttons */
+        .filter-btn.active[data-position="QB"] { background-color: var(--pos-qb); color: #fff; }
+        .filter-btn.active[data-position="RB"] { background-color: var(--pos-rb); color: #000; }
+        .filter-btn.active[data-position="WR"] { background-color: var(--pos-wr); color: #fff; }
+        .filter-btn.active[data-position="TE"] { background-color: var(--pos-te); color: #fff; }
+        .filter-btn.active[data-position="FLX"] { background-color: var(--pos-flx); color: #fff; }
+
+        /* Compare Button */
+        .control-button {
+            padding: 0.2rem 0.6rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid var(--color-panel-border);
+            /* EDITED: Increased transparency */
+            background: rgba(30, 31, 48, 0.25);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            color: var(--color-text-secondary);
+        }
+        .control-button.glow-on-select {
+            box-shadow: 0 0 8px #7300ff;
+            color: #eeeeee;
+            border: 1px solid #4E00DA;
+        }
+        .control-button.active {
+            color: #ffffff;
+            border: 1px solid #a300ff;
+            background: #7300ff39;
+            box-shadow: 0 0 10px #7300ff;
+        }
+        .control-button:disabled {
+            background: rgba(30, 31, 48, 0.5) !important;
+            color: var(--color-text-tertiary) !important;
+            cursor: not-allowed;
+            border-color: var(--color-panel-border) !important;
+            box-shadow: none !important;
+        }
+        .control-button-subtle {
+            background: none;
+            border: none;
+            color: var(--color-text-secondary);
+            text-decoration: underline;
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        /* --- ROSTER VIEW --- */
+        #rosterContainer { 
+            width: 100%; 
+            overflow-x: auto; 
+            padding: 0.25rem;
+        }
+        #rosterGrid { 
+            display: flex; 
+            flex-direction: row; 
+            flex-wrap: nowrap; 
+            gap: 0.5rem; 
+            min-width: min-content; 
+            padding-bottom: 1rem; /* For scrollbar clearance */
+
+        }
+        #rosterGrid.is-preview-mode {
+            justify-content: center;
+        }
+        .roster-column { 
+            width: 135px; 
+            flex-shrink: 0; 
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+		
+        .team-header-item { 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.75rem; 
+            font-weight: 500; 
+            color: var(--color-text-primary); 
+            text-align: center; 
+            padding: 0.5rem; 
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--card-border-radius);
+        }
+        .team-header-item:hover {
+            box-shadow: 0 0 5px #7300ff;
+            
+        }
+		.team-header-item:has(.team-compare-checkbox.selected) {
+          border: 1px solid #6300ffaa;
+		}
+        .team-card { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 0.25rem;
+        }
+
+        .roster-section h3 {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 0.2rem;
+            color: var(--color-text-primary);
+            text-align: center;
+            padding: 0.0rem 0;
+            background: #7f91bd10a;
+            backdrop-filter: blur(54px);
+            -webkit-backdrop-filter: blur(54px);
+            border-radius: 6px;
+            border: 0.5px dotted rgba(128, 138, 189, 0.1);
+            box-shadow: 0 0 7px var(--color-text-primary);
+        }
+         .qb-section h3 { 
+            color: var(--pos-qb);
+            box-shadow: 0 0 4px var(--pos-qb); }
+         .rb-section h3 { 
+            color: var(--pos-rb); 
+            box-shadow: 0 0 4px var(--pos-rb); }
+          .wr-section h3 { 
+            color: var(--pos-wr);
+            box-shadow: 0 0 4px var(--pos-wr); }
+         .te-section h3 { 
+            color: var(--pos-te); 
+            box-shadow: 0 0 4px var(--pos-te); }
+
+    /* --- Player & Pick Card Styles --- */
+        .player-row, .pick-row {
+            background: var(--color-panel-bg);
+            border: 1px solid var(--color-panel-border);
+            border-radius: var(--card-border-radius);
+            padding: 0.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            transition: all 0.2s ease;
+        }
+        .is-trade-mode .player-row, .is-trade-mode .pick-row { 
+            cursor: pointer; 
+        }
+        .is-trade-mode .player-row:hover, .is-trade-mode .pick-row:hover {
+            border-color: var(--color-panel-border-glow);
+            transform: translateY(-2px);
+        }
+        
+        .player-selected {
+            border-color: var(--color-accent-primary) !important;
+            box-shadow: 0 0 var(--glow-strength) var(--color-accent-primary-glow);
+        }
+
+        .player-main-line {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        .player-name { 
+            font-weight: 400; 
+            font-size: 0.8rem; 
+            color: var(--color-text-primary);
+            line-height: 1.2;
+        }
+        .player-tag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 1px 4px;
+            border-radius: 5px;
+            color: var(--color-bg);
+            line-height: 1;
+        }
+
+        .player-meta-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.1rem 0.1rem;
+            gap: 0.0rem;
+            font-size: 0.65rem;
+            color: var(--color-text-secondary);
+        }
+        .team-tag {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 600;
+            padding: 1px 4px;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+        .player-value-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65rem;
+            color: var(--color-text-secondary);
+            background: #1d223faa;
+            border-radius: 6px;
+            padding: 0.0rem 0.1rem;
+        }
+        .player-value-line .value {
+            font-weight: 600;
+            font-size: 0.7rem;
+            color: var(--color-text-primary);
+        }
+
+        .pick-row {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pick-label {
+            font-weight: 700;
+            font-size: 0.75rem;
+        }
+        .pick-ktc {
+            font-size: 0.7rem;
+            color: var(--color-text-secondary);
+        }
+        .pick-ktc .value {
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .team-compare-checkbox {
+            appearance: none;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid var(--color-text-tertiary);
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease-in-out;
+            flex-shrink: 0;
+        }
+        .team-compare-checkbox.selected {
+            border-color: var(--color-accent-primary);
+            background-color: var(--color-accent-primary);
+            box-shadow: 0 0 var(--glow-strength) var(--color-accent-primary-glow);
+        }
+        .team-compare-checkbox.selected::after {
+            content: '✔';
+            position: absolute;
+            color: var(--color-bg);
+            font-size: 0.7rem;
+            font-weight: 900;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+		
+		
+        /* --- TRADE SIMULATOR --- */
+        #tradeSimulator {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            right: 1rem;
+            z-index: 20;
+            display: none;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .trade-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .trade-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 0 0.5rem; 
+        }
+        .trade-header h3 { 
+            font-size: 1rem; 
+            font-weight: 700; 
+            color: var(--color-text-primary); 
+            text-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        #clearTradeButton { 
+            background: var(--color-bg-light); 
+            color: var(--color-text-secondary); 
+            font-size: 0.8rem; 
+            padding: 4px 10px; 
+            border-radius: 6px;
+            border: 1px solid var(--color-panel-border);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #clearTradeButton:hover {
+            color: var(--color-text-primary);
+            border-color: var(--color-panel-border-glow);
+        }
+
+        .trade-body { 
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .trade-divider {
+            width: 2px;
+            height: 80%;
+            background-image: linear-gradient(to bottom, transparent, var(--color-accent-secondary), transparent);
+            opacity: 0.7;
+        }
+
+        .trade-team-column { 
+            display: flex; 
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .trade-team-column h4 { 
+            font-size: 0.9rem; 
+            font-weight: 600; 
+            margin-bottom: 0.25rem; 
+            text-align: center;
+            color: var(--color-text-secondary);
+        }
+
+        .trade-assets { 
+            min-height: 50px; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 5px; 
+            align-content: flex-start; 
+            flex-grow: 1; 
+            background: var(--color-bg-light);
+            border-radius: var(--panel-border-radius);
+            padding: 0.5rem;
+        }
+        .trade-asset-chip { 
+            background: var(--color-panel-bg); 
+            border: 1px solid var(--color-panel-border);
+            font-size: 0.75rem; 
+            padding: 3px 7px; 
+            border-radius: 6px; 
+            display: flex; 
+            gap: 5px; 
+            align-items: center;
+            color: var(--color-text-secondary);
+        }
+        .trade-asset-chip .ktc { 
+            font-weight: 700;
+            color: var(--color-text-primary);
+        }
+
+        .trade-total { 
+            margin-top: 0.25rem; 
+            text-align: center; 
+            font-size: 1rem; 
+            font-weight: 700; 
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        .trade-total.winning {
+            box-shadow: 0 0 12px var(--color-accent-trade-win);
+            color: var(--color-accent-trade-win);
+        }
+        .trade-total.losing {
+            box-shadow: 0 0 12px var(--color-accent-trade-lose);
+            color: var(--color-accent-trade-lose);
+        }
+        .trade-total.even {
+            color: var(--color-accent-secondary);
+        }
+
+        /* --- OWNERSHIP (PLAYER LIST) VIEW --- */
+        #playerListView { 
+            max-width: 700px; 
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%; 
+        }
+        #playerSearch {
+            background: var(--color-panel-bg);
+            border: 1px solid var(--color-panel-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: var(--color-text-primary);
+            padding: 0.50rem 0.75rem;
+            border-radius: var(--panel-border-radius);
+            font-size: 0.8rem;
+            width: 100%;
+            margin: 0.5rem auto;
+            display: block;
+            transition: all 0.2s ease;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            flex-shrink: 0;
+        }
+        #playerSearch:focus {
+            outline: none;
+            border-color: var(--color-accent-primary);
+            box-shadow: 0 0 var(--glow-strength) var(--color-accent-primary-glow);
+        }
+        #playerSearch::placeholder { 
+            color: var(--color-text-secondary); 
+        }
+
+        .player-list-section { 
+            border-radius: 6px; 
+            overflow-y: auto;
+            flex: 1;
+            margin-bottom: 2rem;
+        }
+
+        .pl-player-row { 
+            display: flex; 
+            align-items: center; 
+            padding: 0.5rem 0.75rem; 
+            font-size: 0.9rem;
+        }
+        .player-list-section .pl-player-row:nth-child(odd) { 
+            background-color: var(--color-bg-light); 
+        }
+        .player-list-section .pl-player-row:nth-child(even) { 
+            background-color: transparent;
+        }
+
+        .pl-player-info { 
+            display: flex; 
+            flex-direction: column; 
+            flex: 1; 
+            min-width: 0;
+        }
+        .pl-player-name { 
+            font-size: 0.9rem; 
+            font-weight: 600; 
+            color: var(--color-text-primary); 
+            display: flex; 
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .pl-player-details { 
+            font-size: 0.8rem; 
+            color: var(--color-text-secondary); 
+            font-weight: 500; 
+            margin-top: 2px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+        .pl-list-tag { 
+            min-width: 24px; /* EDITED */
+            height: 22px; 
+            line-height: 22px; 
+            font-size: 0.8rem; 
+            font-weight: 700; 
+            text-align: center; 
+            border-radius: 5px; 
+            color: var(--color-bg); 
+            flex-shrink: 0;
+            margin-right: 0.3rem; /* EDITED */
+        }
+
+        .pl-list-tag-spacer {
+            width: 24px; /* EDITED */
+            height: 1px;
+            flex-shrink: 0;
+            margin-right: 0.3rem; /* EDITED */
+        }
+
+        .pl-right-meta {
+            display: grid;
+            grid-template-columns: 35px 45px 1fr;
+            column-gap: 1rem;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--color-text-secondary);
+            font-weight: 600;
+            flex-shrink: 0;
+            width: 170px; /* EDITED */
+            text-align: right;
+        }
+        .pl-col-count, .pl-col-pct { 
+            text-align: center; 
+            font-variant-numeric: tabular-nums;
+        }
+      /* "LEAGUES" text in the ownership page header  */
+        .pl-col-lgs {
+            text-align: left;
+            white-space: normal;
+            font-size: 0.65rem; /* EDITED */
+            font-weight: 500;
+            color: #cdd1ee;
+        }
+
+        .pl-list-header {
+            background: #1d1f35!important; 
+             border: 1px solid var(--color-panel-border);
+             border-radius: 4px; 
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: var(--color-text-secondary); 
+            text-transform: uppercase; 
+            letter-spacing: .8px; 
+            font-weight: 700; 
+            font-size: 0.7rem;
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            margin: 2px 1px 1px 1px;
+            padding: 3px 1px;
+
+        }
+        /* "PLAYERS & INFO" text in the ownership page header  */
+        .pl-list-header .pl-player-name {
+            font-size: 0.75rem;
+            color: #cdd1ee;
+        }
+        .pl-list-header .pl-player-info {
+            justify-content: center; /* center header text vertically */
+        }
+        /* "#" and "%" Headers text in ownership page  */
+        .pl-list-header .pl-right-meta {
+            font-size: 0.85rem;
+            color: #cdd1ee;
+        }
+
+        .pl-list-header .pl-col-lgs {
+            font-size: 0.65rem;
+            color: #cdd1ee;
+        }
+
+        
+        .pl-list-header .pl-player-details { display: none; }
+
+        .pl-count-high, .pl-pct-high { color: var(--color-accent-trade-win); }
+        .pl-count-mid, .pl-pct-mid { color: var(--color-accent-secondary); }
+        .pl-count-low, .pl-pct-low { color: var(--color-text-secondary); }
+
+        /* --- Responsive Header Layout --- */
+
+        @media (min-width: 820px) {
+            .app-header {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 0.25rem 0.5rem;
+            }
+
+            #contextual-controls {
+                display: contents;
+            }
+
+            .header-row {
+                width: auto;
+                border-top: none !important;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+            
+            .header-row:has(#positional-filters) {
+                flex-basis: 100%;
+                justify-content: center;
+                margin-top: 0.25rem;
+            }
+
+            .header-row:has(.compare-controls) {
+                /* This will make the row containing filters and compare buttons take only the space it needs */
+                width: auto;
+                flex-grow: 0;
+            }
+
+            #positional-filters {
+                flex-grow: 0; /* Prevents the filter group from expanding */
+            }
+
+            .username-area, .custom-select-wrapper {
+                flex-grow: 0;
+                max-width: 220px;
+            }
+        }
+
+    
+/* ===== Ownership page: mobile corrections (v4 — rows vs header separated) ===== */
+@media (max-width: 540px) {
+  /* Container padding so content breathes */
+  #playerListView { padding: 0 6px; }
+
+  /* ——— BODY ROWS ONLY ——— */
+  .player-list-section .pl-player-row {
+    padding: 6px 3px !important;
+    gap: 4px !important;
+    font-size: 0.72rem !important;
+    align-items: flex-start !important;
+  }
+
+  .player-list-section .pl-player-row .pl-player-name {
+    font-size: 0.78rem !important;
+    line-height: 1.2 !important;
+    gap: 6px !important;
+  }
+
+  /* Inline bits inside the name line (e.g., Age) */
+  .player-list-section .pl-player-row .pl-player-name span,
+  .player-list-section .pl-player-row .pl-player-name .player-age {
+    font-size: 0.6rem !important;
+  }
+
+  /* Team badge in rows */
+  .player-list-section .pl-player-row .team-tag {
+    font-size: 0.6rem !important;
+    padding: 1px 6px !important;
+  }
+
+  /* Secondary details line (ADP, SFLX, RY) */
+  .player-list-section .pl-player-row .pl-player-details {
+    font-size: 0.60rem !important;
+    line-height: 1.15 !important;
+    white-space: normal !important;
+  }
+
+  /* Right meta columns (count | % | leagues) for rows */
+  .player-list-section .pl-player-row .pl-right-meta {
+    width: 160px !important;
+    grid-template-columns: 22px 34px 1fr !important;
+    column-gap: 6px !important;
+    font-size: 0.68rem !important;
+  }
+  .player-list-section .pl-player-row .pl-col-count,
+  .player-list-section .pl-player-row .pl-col-pct {
+    text-align: center !important;
+  }
+  .player-list-section .pl-player-row .pl-col-lgs {
+    font-size: 0.68rem !important;
+    white-space: normal !important;
+    text-align: left !important;
+    line-height: 1.15 !important;
+    word-break: break-word !important;
+  }
+
+  /* Position tag chip in rows */
+  .player-list-section .pl-player-row .pl-list-tag {
+    min-width: 22px !important;
+    height: 18px !important;
+    line-height: 18px !important;
+    font-size: 0.68rem !important;
+    margin-right: 4px !important;
+  }
+  .player-list-section .pl-player-row .pl-list-tag-spacer {
+    width: 26px !important;
+    margin-right: 6px !important;
+  }
+
+  /* Guard “Age:” and similar tiny bits inside rows */
+  .player-list-section .pl-player-row .player-meta-line,
+  .player-list-section .pl-player-row .player-meta-line .player-age,
+  .player-list-section .pl-player-row .player-meta-line span {
+    font-size: 0.68rem !important;
+    line-height: 1.15 !important;
+  }
+
+  /* ——— HEADER ONLY ——— */
+  .player-list-section .pl-list-header {
+    font-size: 0.68rem !important;
+    letter-spacing: .6px !important;
+  }
+  .player-list-section .pl-list-header .pl-player-name {
+    font-size: 0.68rem !important;
+  }
+  .player-list-section .pl-list-header .pl-right-meta {
+    width: 160px !important;
+    grid-template-columns: 22px 34px 1fr !important;
+    column-gap: 6px !important;
+    font-size: 0.68rem !important;
+  }
+  .player-list-section .pl-list-header .pl-col-lgs {
+    font-size: 0.68rem !important;
+  }
+  
+  .player-list-section .pl-list-header .pl-player-info {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 3px 0px !important;
+  }
+  
+  
+}
+
+</style>
+<style>
+    /* --- CUSTOM RULE: Prevent Wrapping on Ownership Page --- */
+    #playerListView .pl-player-info,
+    #playerListView .pl-player-details {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+</style>
+<style>
+
+/* === Replaced Background: Parallax Pixel Starfield (inline, single-file) === */
+html { height: 100%; overflow-y: auto !important; overflow-x: hidden !important; }
+body { min-height: 100%; background: transparent !important; }
+
+#starfield { 
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    /* Sphere on TOP-LEFT (on top layer) */
+    radial-gradient(
+      660px 660px at 20% -20%,
+     rgba(52, 11, 113, 0.05) 1%, rgba(150, 0, 120, 0.05) 42%, rgba(115, 48, 250, 0.10) 62%, rgba(187, 0, 148, 0.05) 82%, rgba(255, 255, 255, 0) 100%),
+      radial-gradient(
+      460px 460px at 90% 10%,
+     rgba(52, 11, 113, 0.35) 1%, rgba(20, 48, 50, 0.25) 32%, rgba(50, 0, 20, 0.10) 62%, rgba(87, 0, 48, 0.10) 82%, rgba(255, 255, 255, 0) 100%),
+    /* Base starfield backdrop (below) */
+    radial-gradient(ellipse at 50% 100%, #1B2735 0%, #090A0F 100%);
+  background-repeat: no-repeat;  
+}
+
+/* Layers */
+#stars, #stars1, #stars2, #stars3 { position: absolute; left: 0; top: 0; }
+
+#stars1 {
+  width: 1px; 
+  height: 2px; 
+  background: transparent;
+  border-radius: 20px;
+  box-shadow: 1528px 425px #FF4089, 1965px 1848px #F08cd1, 466px 588px #008cd1, 1441px 1361px #008cd1, 1403px 1363px #FF00FF, 1010px 54px #008cd1, 904px 1539px #6300FF, 929px 1400px #7300ff, 1370px 1286px #008cd1, 612px 1109px #9900FF, 1899px 1371px #FF4089, 215px 873px #E86439, 1675px 1005px #FFF, 145px 1973px #FFF, 1974px 1948px #FFF, 128px 1115px #55FFAA, 1863px 1335px #FFF, 1540px 938px #FFF, 1739px 491px #FFF, 1898px 1397px #3700B3 , 706px 1264px #E86439, 1505px 1162px #FFF, 200px 1889px #FFF, 1044px 1230px #FF5090, 315px 1227px #00DFFF, 625px 217px #FFF, 252px 336px #00ABFF, 1714px 1743px #FFF, 778px 674px #FFF, 1959px 1137px #FF4089, 979px 677px #900FFF;
+  animation: animStar 450s linear infinite;
+}
+
+/* Small stars */
+#stars {
+  width: 1px; height: 1px; background: transparent;
+  border-radius: 20px;
+  box-shadow: 1528px 425px #FFF, 1965px 1848px #FFF, 466px 588px #FFF, 1441px 1361px #FFF, 395px 1296px #FFF, 1603px 1631px #FFF, 1403px 1363px #FFF, 1010px 54px #FFF, 904px 1539px #FFF, 929px 1400px #FFF, 1370px 1286px #FFF, 612px 1109px #FFF, 1899px 1371px #FFF, 215px 873px #FFF, 1997px 882px #FFF, 283px 759px #FFF, 1675px 1005px #FFF, 145px 1973px #FFF, 1974px 1948px #FFF, 128px 1115px #FFF, 1863px 1335px #FFF, 1540px 938px #FFF, 1739px 491px #FFF, 1898px 1397px #FFF, 706px 1264px #FFF, 1505px 1162px #FFF, 200px 1889px #FFF, 1044px 1230px #FFF, 315px 1227px #FFF, 625px 217px #FFF, 1813px 1135px #FFF, 287px 791px #FFF, 1131px 816px #FFF, 845px 87px #FFF, 272px 94px #FFF, 1341px 1194px #FFF, 1547px 893px #FFF, 1460px 1971px #FFF, 655px 1052px #FFF, 1178px 815px #FFF, 1643px 1785px #FFF, 1172px 277px #FFF, 1486px 280px #FFF, 134px 1224px #FFF, 338px 213px #FFF, 814px 1844px #FFF, 1207px 806px #FFF, 14px 526px #FFF, 957px 455px #7300ff, 518px 864px #7300ff, 321px 438px #7300ff, 1226px 1328px #FFF, 784px 1010px #FF0266 , 1052px 1568px #FF0266 , 350px 478px #FF0266 , 1923px 1968px #FF0266 , 292px 809px #7300ff, 944px 1725px #7300ff, 36px 1643px #7300ff, 1744px 1796px #7300ff, 649px 261px #7300ff, 1454px 166px #FF0266 , 1548px 476px #FF0266 , 1254px 1137px #FF0266 , 597px 730px #FF0266 , 1522px 1228px #FF0266 , 441px 724px #FF0266 , 1503px 451px #FF0266 , 418px 57px #FF0266 , 1459px 1767px #FF0266 , 431px 1686px #FF0266 , 738px 219px #FF0266 , 420px 1150px #FF0266 , 1424px 685px #FF0266 , 1503px 1039px #FF0266 , 1365px 856px #7300ff, 341px 42px #7300ff, 646px 1985px #7300ff, 1589px 1094px #7300ff, 1284px 711px #7300ff, 637px 1761px #7300ff, 191px 1522px #7300ff, 530px 436px #7300ff, 454px 1539px #7300ff, 1831px 1292px #7300ff, 1697px 811px #7300ff, 1542px 740px #7300ff, 256px 235px #FF0266 , 853px 329px #FF0266 , 250px 124px #FF0266 , 1823px 525px #FF0266 , 1999px 1499px #FF0266 , 789px 367px #FF0266 , 1531px 315px #FF0266 , 1519px 1955px #FF0266 , 247px 505px #FFF, 559px 657px #FF0266 , 1399px 1938px #FF0266 , 618px 1150px #FF0266 , 1938px 731px #FFF, 995px 188px #FFF, 1989px 1231px #FFF, 97px 682px #FFF, 1640px 1005px #FFF, 1556px 1506px #FFF, 1381px 758px #FFF, 1460px 611px #FFF, 1635px 1315px #FFF, 1114px 200px #FFF, 546px 1289px #FFF, 1445px 1736px #FFF, 643px 1087px #FFF, 348px 399px #FFF, 1342px 1288px #FFF, 680px 1574px #FFF, 1942px 33px #FFF, 1839px 1742px #FFF, 1197px 679px #FFF, 153px 1969px #FFF, 980px 861px #FFF, 1940px 633px #FFF, 555px 149px #FFF, 2px 1915px #FFF, 130px 1888px #FFF, 618px 1246px #FFF, 282px 1560px #FFF, 296px 1541px #FFF, 1774px 1080px #FFF, 1886px 1369px #FFF, 1039px 424px #FFF, 138px 476px #FFF, 757px 1110px #FFF, 168px 959px #FFF, 1031px 549px #FFF, 1028px 1925px #FFF, 661px 1642px #FFF, 1511px 197px #FFF, 762px 772px #FFF, 1649px 843px #FFF, 646px 1469px #FFF, 1723px 1170px #FFF, 546px 562px #FFF, 1063px 1998px #FFF, 1178px 608px #FFF, 1674px 768px #FFF, 1587px 501px #FFF, 1900px 874px #FFF, 133px 512px #FFF, 889px 356px #FFF, 1357px 659px #FFF, 555px 392px #FFF, 611px 1597px #FFF, 1500px 115px #FFF, 157px 1161px #FFF, 1479px 1475px #FFF, 1446px 1669px #FFF, 140px 1465px #7300ff, 1411px 69px #7300ff, 782px 968px #7300ff, 2000px 42px #7300ff, 797px 491px #7300ff, 1928px 1770px #7300ff, 475px 915px #7300ff, 412px 1807px #7300ff, 23px 914px #FFF, 676px 961px #FFF, 1952px 457px #FFF, 1279px 224px #FFF, 451px 1797px #FFF, 1254px 1586px #FFF, 1309px 1654px #FFF, 735px 787px #FFF, 1828px 1871px #FFF, 1966px 1938px #FFF, 582px 222px #FFF, 1868px 854px #FFF, 1085px 1508px #FFF, 1578px 1362px #FFF, 1655px 1189px #FFF, 1638px 774px #FFF, 1666px 707px #FFF, 50px 1265px #FFF, 1769px 1686px #FFF, 1243px 355px #FFF, 1466px 307px #FFF, 558px 632px #FFF, 106px 947px #FFF, 1141px 1486px #FFF, 1260px 1124px #FFF, 759px 210px #FFF, 294px 1281px #FFF, 1870px 929px #FFF, 1512px 1564px #FFF, 1803px 894px #FFF, 1162px 638px #FFF, 1500px 303px #FFF, 915px 224px #FFF, 402px 1417px #FFF, 718px 10px #FFF, 158px 1203px #FFF, 804px 556px #FFF, 1521px 259px #FFF, 670px 2000px #FFF, 23px 1093px #FFF, 1665px 1430px #FFF, 1897px 407px #FFF, 1775px 1933px #FFF, 97px 1786px #FFF, 515px 931px #FFF, 1361px 1465px #FFF, 1090px 255px #FFF, 1281px 854px #FFF, 1782px 829px #FFF, 825px 526px #FFF, 1759px 208px #FFF, 1660px 1970px #FFF, 190px 1281px #FFF, 1691px 108px #FFF, 714px 100px #FFF, 1064px 1928px #FFF, 606px 181px #FFF, 1170px 821px #FFF, 1120px 1925px #FFF, 1616px 82px #FFF, 285px 1097px #FFF, 881px 25px #FFF, 861px 383px #FFF, 1735px 1987px #FFF, 1167px 104px #FFF, 1965px 1651px #FFF, 166px 446px #FFF, 925px 1045px #FFF, 578px 387px #FFF, 236px 863px #FFF, 420px 177px #FFF, 1161px 1539px #FFF, 238px 763px #FFF, 1729px 1523px #FFF, 1188px 134px #FFF, 1634px 1606px #FFF, 322px 1217px #FFF, 1507px 318px #FFF, 1536px 1588px #FFF, 244px 968px #FFF, 466px 1776px #FFF, 1594px 558px #FFF, 558px 460px #FFF, 1186px 1622px #FFF, 1856px 1178px #FFF, 1734px 1361px #FFF, 1818px 1091px #FFF, 1712px 731px #FFF, 571px 1364px #FFF, 782px 1152px #FFF, 1232px 254px #FFF, 365px 165px #FFF, 1433px 487px #FF0266 , 1370px 1319px #FF0266 , 585px 87px #FFF, 773px 1526px #FF0266 , 1146px 342px #FF0266 , 791px 1716px #FF0266 , 1250px 812px #FF0266 , 1802px 232px #FF0266 , 1890px 366px #FF0266 , 1028px 170px #FFF, 1829px 360px #FFF, 490px 875px #FFF, 630px 1630px #FFF, 137px 465px #FFF, 1143px 954px #FFF, 701px 147px #FFF, 250px 1823px #FFF, 16px 254px #FFF, 1571px 1189px #FFF, 952px 1239px #FFF, 1759px 629px #FFF, 363px 788px #FF0266, 1545px 163px #FFF, 1025px 661px #FFF, 865px 1708px #FFF, 1573px 1883px #FFF, 1253px 393px #FFF, 1085px 748px #FFF, 1635px 1758px #FFF, 1672px 604px #FFF, 1295px 1928px #FFF, 1046px 1180px #FFF, 1161px 403px #FFF, 1085px 470px #FFF, 243px 1505px #FFF, 906px 1503px #FFF, 313px 555px #FFF, 938px 1019px #FFF, 1436px 875px #FFF, 1528px 1133px #FFF, 1914px 1160px #FFF, 370px 1247px #FFF, 1408px 1179px #FFF, 1658px 1100px #FFF, 982px 254px #FFF, 1044px 1408px #FFF, 1407px 1784px #FFF, 1022px 566px #FFF, 423px 1938px #FFF, 128px 1233px #FFF, 1925px 689px #FFF, 254px 737px #FFF, 387px 804px #FFF, 1605px 1104px #FFF, 119px 1712px #FFF, 1235px 1014px #FFF, 1022px 1749px #FFF, 152px 974px #FFF, 1682px 1219px #FFF, 810px 260px #FFF, 35px 484px #FFF, 166px 703px #FFF, 616px 684px #FFF, 1260px 1348px #FFF, 74px 1307px #7300ff, 1994px 1497px #7300ff, 230px 532px #7300ff, 468px 280px #7300ff, 1738px 207px #7300ff, 1753px 734px #7300ff, 1672px 949px #7300ff, 57px 132px #7300ff, 1403px 183px #7300ff, 410px 282px #7300ff, 1627px 1809px #7300ff, 1277px 899px #7300ff, 1264px 1522px #7300ff, 788px 1868px #7300ff, 1824px 1065px #FFF, 1821px 283px #FFF, 1901px 1290px #FFF, 850px 1682px #FFF, 82px 1661px #FFF, 655px 1383px #FFF, 379px 807px #FFF, 1264px 248px #FFF, 127px 1309px #FFF, 423px 928px #FFF, 1467px 1471px #FFF, 32px 1453px #FFF, 1135px 1763px #FFF, 701px 1534px #FFF, 1234px 1737px #FFF, 1191px 148px #FFF, 734px 1540px #FFF, 1780px 1676px #FFF, 1702px 213px #FFF, 436px 1440px #FFF, 955px 1193px #FFF, 1322px 1615px #FFF, 410px 111px #FFF, 1071px 1447px #FFF, 106px 865px #FFF, 1520px 222px #FFF, 645px 443px #FFF, 1430px 1384px #FFF, 1666px 377px #FFF, 1566px 1474px #FFF, 180px 1323px #FFF, 148px 865px #FFF, 196px 303px #FFF, 58px 343px #FFF, 1314px 391px #FFF, 1540px 424px #FFF, 829px 1898px #FFF, 1871px 411px #FFF, 286px 1553px #FFF, 1453px 1290px #FFF, 1874px 470px #FFF, 1338px 393px #FFF, 1613px 11px #FFF, 1575px 312px #FFF, 418px 1672px #FFF, 1640px 1285px #FFF, 193px 8px #FFF, 464px 1088px #FFF, 1499px 1634px #FFF, 1104px 1978px #FFF, 504px 1462px #FFF, 1120px 1254px #FFF, 643px 757px #FFF, 333px 832px #FFF, 1285px 1515px #FFF, 1002px 960px #FFF, 576px 1431px #FFF, 1524px 971px #FFF, 1659px 740px #FFF, 1939px 694px #FFF, 1575px 1222px #FFF, 500px 365px #FFF, 838px 875px #FFF, 1901px 1349px #FFF, 1028px 1784px #FFF, 935px 269px #FFF, 1839px 746px #FFF, 1882px 16px #FFF, 1221px 1077px #FFF, 148px 321px #FFF, 983px 1466px #FFF, 1327px 1181px #FFF, 516px 1232px #FFF, 1129px 1348px #FFF, 1962px 61px #FFF, 1487px 1480px #FFF, 1889px 1173px #FFF, 1139px 1737px #FFF, 679px 1475px #FFF, 1556px 932px #FFF, 1938px 560px #FFF, 1569px 546px #FFF, 1619px 1851px #FFF, 119px 237px #FFF, 1111px 368px #FFF, 74px 1778px #FFF, 1346px 1193px #FFF, 381px 885px #FFF, 1220px 52px #FFF, 849px 1155px #FFF, 1559px 180px #FFF, 1536px 881px #FFF, 1147px 824px #FFF, 1868px 1852px #FFF, 1158px 892px #FFF, 717px 136px #FFF, 387px 1191px #FFF, 1492px 168px #FFF, 1727px 665px #FFF, 688px 226px #FFF, 1448px 1329px #FFF, 1882px 596px #FFF, 1005px 1554px #FFF, 1893px 1343px #FFF, 738px 1036px #FFF, 1494px 82px #FFF, 135px 221px #FFF, 1289px 840px #FFF, 68px 42px #FFF, 734px 876px #FFF, 1063px 1091px #FFF, 410px 1291px #FFF, 1341px 22px #FFF, 753px 387px #FFF, 1545px 1172px #FFF, 1354px 1144px #FFF, 1643px 441px #FFF, 1594px 610px #FFF, 251px 137px #FFF, 690px 1125px #FFF, 64px 162px #FFF, 1058px 383px #FFF, 1162px 586px #FFF, 1310px 836px #FFF, 775px 1846px #FFF, 1802px 574px #FFF, 1040px 1543px #FFF, 885px 1291px #FFF, 1396px 1039px #FFF, 665px 1812px #FFF, 819px 1993px #FFF, 127px 1873px #FFF, 557px 948px #FFF, 525px 1469px #FFF, 1500px 1544px #FF0266 , 1466px 1587px #FF0266 , 1984px 961px #FF0266 , 1860px 1848px #FF0266 , 1060px 1761px #FFF, 1907px 313px #FF0266 , 1367px 850px #FF0266 , 1714px 193px #FF0266 , 786px 38px #FF0266 , 1169px 1910px #FF0266 , 1782px 1960px #FF0266 , 1751px 379px #FFF, 278px 260px #FFF, 101px 405px #FFF, 315px 286px #FFF, 1770px 1739px #FFF, 425px 1854px #FFF, 1040px 1816px #FFF, 1771px 1608px #FFF, 64px 285px #FFF, 253px 1429px #FFF, 524px 239px #FFF, 1551px 77px #FFF, 1670px 349px #FFF, 837px 403px #FFF, 696px 1492px #FFF, 1225px 751px #FFF, 61px 797px #FFF, 1715px 1683px #FFF, 1176px 806px #FFF, 167px 965px #FFF, 959px 210px #FFF, 1648px 745px #FFF, 1591px 1091px #FFF, 1982px 1949px #FFF, 1807px 86px #FFF, 137px 1221px #FFF, 1674px 1042px #FFF, 1635px 288px #FFF, 1983px 247px #FFF, 979px 1677px #FFF, 210px 726px #FFF, 375px 770px #FFF, 1512px 752px #FFF, 1664px 1532px #FFF, 8px 221px #FFF, 971px 1668px #FFF, 1243px 1935px #FFF, 1014px 1836px #FFF, 1063px 210px #FFF, 1871px 850px #FFF, 952px 408px #FFF, 121px 926px #FFF, 526px 1993px #FFF, 1616px 481px #FFF, 1441px 492px #FFF, 456px 1013px #FFF, 1370px 1753px #FFF, 1149px 137px #FFF, 844px 1568px #FFF, 727px 1038px #FFF, 1622px 1964px #FFF, 745px 402px #FFF, 468px 1655px #FFF, 1380px 1718px #FFF, 41px 4px #FFF, 955px 1131px #FFF, 1524px 587px #FFF, 1598px 1384px #FFF, 590px 1914px #FFF, 645px 1994px #FFF, 1696px 667px #FFF, 1772px 53px #FFF, 1336px 25px #FFF, 331px 887px #FFF, 1224px 1292px #FFF, 666px 1276px #FFF, 386px 367px #FFF, 747px 1748px #FFF, 850px 1193px #FFF, 1657px 1535px #FFF, 178px 1859px #FFF, 313px 615px #FFF, 1737px 1009px #FFF, 451px 241px #FFF, 1712px 1603px #FFF, 263px 38px #FFF, 1441px 1511px #FFF, 1035px 782px #FFF, 755px 112px #FFF, 879px 1214px #FFF, 445px 1417px #FFF, 467px 362px #FFF, 263px 1198px #FFF, 471px 1516px #FFF, 985px 1319px #FFF, 464px 1348px #FFF, 1669px 910px #FFF, 497px 925px #FFF, 738px 1155px #FFF, 1489px 1982px #FFF, 1643px 575px #FFF, 1387px 194px #FFF, 1375px 1490px #FFF, 845px 295px #FFF, 785px 325px #FFF, 704px 401px #FFF, 532px 83px #FFF, 1390px 1508px #FFF, 1481px 720px #FFF, 1818px 937px #FFF, 1989px 976px #FFF, 642px 1965px #FFF, 1032px 1018px #FFF, 1132px 1575px #FF0266 , 420px 728px #FF0266 , 867px 241px #FF0266 , 323px 265px #FF0266 , 229px 573px #FFF, 119px 1854px #FF0266 , 947px 106px #FF0266 , 1264px 1178px #FFF, 1614px 1429px #FFF, 1172px 811px #FFF, 1247px 1441px #FFF, 1867px 418px #FFF, 180px 904px #FFF, 1693px 1967px #FFF, 1899px 1218px #FFF, 1488px 460px #FFF, 1774px 360px #FFF, 306px 250px #FFF, 934px 242px #FFF, 731px 1344px #FFF, 1573px 1087px #FFF, 139px 1888px #FFF, 603px 1160px #FFF, 1411px 314px #FFF, 421px 1016px #FFF, 829px 1568px #FFF, 1319px 199px #FFF, 1586px 1316px #FFF, 830px 1008px #FFF, 133px 659px #FFF, 390px 737px #FFF, 1739px 1708px #FFF, 1994px 1806px #FFF, 721px 1901px #FFF, 1861px 1222px #FFF, 997px 1759px #FFF, 674px 1599px #FFF, 322px 1215px #FFF, 1698px 308px #FFF, 911px 478px #FFF, 1722px 1884px #FFF, 103px 71px #FFF, 513px 424px #FFF, 618px 1074px #FFF, 8px 913px #FFF, 1322px 583px #FFF, 1603px 230px #FFF, 1857px 1046px #FFF, 126px 583px #FFF, 577px 158px #FFF, 1779px 985px #FFF, 142px 821px #FFF, 1172px 98px #FFF, 183px 1602px #FFF, 1531px 1129px #FFF, 328px 318px #FFF, 197px 1680px #FFF, 632px 412px #FFF, 359px 416px #FFF, 704px 1449px #FFF, 409px 415px #FFF, 27px 829px #FFF, 1528px 1075px #FFF, 1501px 868px #FFF, 1501px 1723px #FFF, 375px 772px #FFF, 12px 781px #FFF, 1284px 1785px #FFF, 280px 1776px #FFF, 1122px 1307px #FFF, 982px 1098px #FFF, 1278px 394px #FFF, 439px 1555px #FFF, 1154px 401px #FFF, 1317px 1313px #FFF, 551px 750px #FFF, 1350px 1392px #FFF, 1386px 544px #FFF, 860px 1745px #FFF, 1164px 571px #FFF, 14px 1522px #FFF, 1047px 1740px #FFF, 1425px 1697px #FFF, 1093px 1473px #FFF, 1827px 1566px #FFF, 1759px 1732px #FFF, 327px 1195px #FFF, 138px 1788px #FFF, 1280px 499px #FFF, 391px 1907px #FFF, 662px 937px #FFF, 1612px 871px #FFF, 147px 1755px #FFF, 562px 549px #FFF, 1843px 1808px #FFF, 1216px 385px #FFF, 944px 730px #FFF, 304px 223px #FFF, 801px 1487px #FFF, 496px 301px #FFF, 1476px 1828px #FFF, 228px 1311px #FFF, 1117px 374px #FFF, 986px 1637px #FFF, 366px 1044px #FFF, 1003px 1192px #FFF, 420px 1821px #FFF, 1425px 835px #FFF, 219px 1890px #FFF, 1493px 61px #FFF, 766px 1189px #FFF, 159px 431px #FFF, 252px 336px #FFF, 1714px 1743px #FFF, 778px 674px #FFF, 1959px 1137px #FFF, 979px 677px #FFF, 1104px 214px #FFF;
+  animation: animStar 300s linear infinite;
+}
+#stars::after {
+  content: ""; position: absolute; top: 2000px;
+  width: 1px; height: 1px; background: transparent;
+  border-radius: 10px;
+  box-shadow: 1528px 425px #FFF, 1965px 1848px #FFF, 466px 588px #FFF, 1441px 1361px #FFF, 395px 1296px #FFF, 1603px 1631px #FFF, 1403px 1363px #FFF, 1010px 54px #FFF, 904px 1539px #FFF, 929px 1400px #FFF, 1370px 1286px #FF0266 , 612px 1109px #FF0266 , 1899px 1371px #FFF, 215px 873px #FF0266 , 1997px 882px #FF0266 , 283px 759px #FFF, 1675px 1005px #FF0266 , 145px 1973px #FF0266 , 1974px 1948px #FFF, 128px 1115px #FFF, 1863px 1335px #FFF, 1540px 938px #FFF, 1739px 491px #FFF, 1898px 1397px #FFF, 706px 1264px #FFF, 1505px 1162px #FFF, 200px 1889px #FFF, 1044px 1230px #FFF, 315px 1227px #FFF, 625px 217px #FFF, 1813px 1135px #FFF, 287px 791px #FFF, 1131px 816px #FFF, 845px 87px #FFF, 272px 94px #FFF, 1341px 1194px #E86439, 1547px 893px #FFF, 1460px 1971px #FFF, 655px 1052px #FFF, 1178px 815px #E86439, 1643px 1785px #FFF, 1172px 277px #FFF, 1486px 280px #FFF, 134px 1224px #FFF, 338px 213px #E86439, 814px 1844px #FFF, 1207px 806px #FFF, 14px 526px #FFF, 957px 455px #FFF, 518px 864px #E86439, 321px 438px #FFF, 1226px 1328px #FFF, 784px 1010px #FFF, 1052px 1568px #FFF, 350px 478px #FFF, 1923px 1968px #FFF, 292px 809px #FFF, 944px 1725px #FFF, 36px 1643px #FFF, 1744px 1796px #FFF, 649px 261px #FFF, 1454px 166px #FFF, 1548px 476px #E86439, 1254px 1137px #E86439, 597px 730px #E86439, 1522px 1228px #FFF, 441px 724px #FFF, 1503px 451px #FFF, 418px 57px #FFF, 1459px 1767px #FFF, 431px 1686px #FFF, 738px 219px #FFF, 420px 1150px #FFF, 1424px 685px #7300ff, 1503px 1039px #7300ff, 1365px 856px #7300ff, 341px 42px #7300ff, 646px 1985px #FFF, 1589px 1094px #7300ff, 1284px 711px #7300ff, 637px 1761px #7300ff, 191px 1522px #FFF, 530px 436px #7300ff, 454px 1539px #7300ff, 1831px 1292px #7300ff, 1697px 811px #7300ff, 1542px 740px #FFF, 256px 235px #7300ff, 853px 329px #7300ff, 250px 124px #7300ff, 1823px 525px #FFF, 1999px 1499px #FFF, 789px 367px #FFF, 1531px 315px #FFF, 1519px 1955px #FFF, 247px 505px #FFF, 559px 657px #FFF, 1399px 1938px #FFF, 618px 1150px #FFF, 1938px 731px #FFF, 995px 188px #FFF, 1989px 1231px #E86439, 97px 682px #E86439, 1640px 1005px #FFF, 1556px 1506px #FF0266 , 1381px 758px #FF0266 , 1460px 611px #FF0266 , 1635px 1315px #FF0266 , 1114px 200px #FF0266 , 546px 1289px #FFF, 1445px 1736px #FFF, 643px 1087px #FFF, 348px 399px #FFF, 1342px 1288px #E86439, 680px 1574px #FFF, 1942px 33px #FFF, 1839px 1742px #FFF, 1197px 679px #FFF, 153px 1969px #FFF, 980px 861px #FFF, 1940px 633px #FFF, 555px 149px #FFF, 2px 1915px #FFF, 130px 1888px #FFF, 618px 1246px #FFF, 282px 1560px #FFF, 296px 1541px #FFF, 1774px 1080px #FFF, 1886px 1369px #FFF, 1039px 424px #FFF, 138px 476px #FFF, 757px 1110px #FFF, 168px 959px #FFF, 1031px 549px #FFF, 1028px 1925px #FFF, 661px 1642px #FFF, 1511px 197px #FFF, 762px 772px #FFF, 1649px 843px #FFF, 646px 1469px #FFF, 1723px 1170px #FFF, 546px 562px #FFF, 1063px 1998px #FFF, 1178px 608px #FFF, 1674px 768px #FFF, 1587px 501px #FFF, 1900px 874px #FFF, 133px 512px #FFF, 889px 356px #FFF, 1357px 659px #FFF, 555px 392px #FFF, 611px 1597px #FFF, 1500px 115px #FFF, 157px 1161px #FFF, 1479px 1475px #FFF, 1446px 1669px #FFF, 140px 1465px #FFF, 1411px 69px #FFF, 782px 968px #FFF, 2000px 42px #FFF, 797px 491px #FFF, 1928px 1770px #FFF, 475px 915px #FFF, 412px 1807px #FFF, 23px 914px #FFF, 676px 961px #FFF, 1952px 457px #FFF, 1279px 224px #FFF, 451px 1797px #FFF, 1254px 1586px #FFF, 1309px 1654px #FFF, 735px 787px #FFF, 1828px 1871px #FFF, 1966px 1938px #FFF, 582px 222px #FFF, 1868px 854px #FFF, 1085px 1508px #FFF, 1578px 1362px #FFF, 1655px 1189px #FFF, 1638px 774px #FFF, 1666px 707px #FFF, 50px 1265px #FFF, 1769px 1686px #FFF, 1243px 355px #FFF, 1466px 307px #FFF, 558px 632px #FFF, 106px 947px #FFF, 1141px 1486px #FFF, 1260px 1124px #FFF, 759px 210px #FFF, 294px 1281px #FFF, 1870px 929px #FFF, 1512px 1564px #FFF, 1803px 894px #FFF, 1162px 638px #FFF, 1500px 303px #FFF, 915px 224px #FFF, 402px 1417px #FFF, 718px 10px #FFF, 158px 1203px #FFF, 804px 556px #FFF, 1521px 259px #FFF, 670px 2000px #FFF, 23px 1093px #FFF, 1665px 1430px #FFF, 1897px 407px #FFF, 1775px 1933px #FFF, 97px 1786px #FFF, 515px 931px #FFF, 1361px 1465px #FFF, 1090px 255px #FFF, 1281px 854px #FFF, 1782px 829px #FFF, 825px 526px #FFF, 1759px 208px #FFF, 1660px 1970px #FFF, 190px 1281px #FFF, 1691px 108px #FFF, 714px 100px #FFF, 1064px 1928px #FFF, 606px 181px #FFF, 1170px 821px #FFF, 1120px 1925px #FFF, 1616px 82px #FFF, 285px 1097px #FFF, 881px 25px #FFF, 861px 383px #FFF, 1735px 1987px #FFF, 1167px 104px #FFF, 1965px 1651px #FFF, 166px 446px #FFF, 925px 1045px #FFF, 578px 387px #FFF, 236px 863px #FFF, 420px 177px #FFF, 1161px 1539px #FFF, 238px 763px #FFF, 1729px 1523px #FFF, 1188px 134px #FFF, 1634px 1606px #FFF, 322px 1217px #FFF, 1507px 318px #FFF, 1536px 1588px #FFF, 244px 968px #FFF, 466px 1776px #FFF, 1594px 558px #FFF, 558px 460px #FFF, 1186px 1622px #FFF, 1856px 1178px #FFF, 1734px 1361px #FFF, 1818px 1091px #FFF, 1712px 731px #FFF, 571px 1364px #FFF, 782px 1152px #FFF, 1232px 254px #FFF, 365px 165px #FFF, 1433px 487px #FFF, 1370px 1319px #FFF, 585px 87px #FFF, 773px 1526px #FFF, 1146px 342px #FFF, 791px 1716px #FFF, 1250px 812px #FFF, 1802px 232px #FFF, 1890px 366px #FFF, 1028px 170px #1ACDD1, 1829px 360px #FFF, 490px 875px #FFF, 630px 1630px #FFF, 137px 465px #FFF, 1143px 954px #FFF, 701px 147px #FFF, 250px 1823px #FFF, 16px 254px #FFF, 1571px 1189px #FFF, 952px 1239px #FFF, 1759px 629px #1ACDD1, 363px 788px #FFF, 1545px 163px #FFF, 1025px 661px #FFF, 865px 1708px #FFF, 1573px 1883px #FFF, 1253px 393px #FFF, 1085px 748px #FFF, 1635px 1758px #FFF, 1672px 604px #FFF, 1295px 1928px #FF0266 , 1046px 1180px #FF0266 , 1161px 403px #FF0266 , 1085px 470px #FF0266 , 243px 1505px #FF0266 , 906px 1503px #FFF, 313px 555px #FF0266 , 938px 1019px #FFF, 1436px 875px #FFF, 1528px 1133px #FFF, 1914px 1160px #FFF, 370px 1247px #FFF, 1408px 1179px #FFF, 1658px 1100px #FFF, 982px 254px #FFF, 1044px 1408px #FFF, 1407px 1784px #FFF, 1022px 566px #FFF, 423px 1938px #FFF, 128px 1233px #FFF, 1925px 689px #FFF, 254px 737px #FFF, 387px 804px #FFF, 1605px 1104px #FFF, 119px 1712px #FFF, 1235px 1014px #FF0266 , 1022px 1749px #FF0266 , 152px 974px #FF0266 , 1682px 1219px #FF0266 , 810px 260px #FF0266 , 35px 484px #FF0266 , 166px 703px #FF0266 , 616px 684px #FF0266 , 1260px 1348px #FF0266 , 74px 1307px #FF0266 , 1994px 1497px #FF0266 , 230px 532px #FFF, 468px 280px #FFF, 1738px 207px #FFF, 1753px 734px #FFF, 1672px 949px #FFF, 57px 132px #FFF, 1403px 183px #FFF, 410px 282px #FFF, 1627px 1809px #FFF, 1277px 899px #FFF, 1264px 1522px #FFF, 788px 1868px #FFF, 1824px 1065px #1ACDD1, 1821px 283px #FFF, 1901px 1290px #FFF, 850px 1682px #FFF, 82px 1661px #FFF, 655px 1383px #FFF, 379px 807px #FFF, 1264px 248px #FFF, 127px 1309px #FFF, 423px 928px #FFF, 1467px 1471px #FFF, 32px 1453px #FFF, 1135px 1763px #FFF, 701px 1534px #FFF, 1234px 1737px #FFF, 1191px 148px #FFF, 734px 1540px #FFF, 1780px 1676px #FFF, 1702px 213px #FFF, 436px 1440px #1ACDD1, 955px 1193px #FFF, 1322px 1615px #FFF, 410px 111px #FFF, 1071px 1447px #FFF, 106px 865px #FFF, 1520px 222px #FFF, 645px 443px #FFF, 1430px 1384px #FFF, 1666px 377px #FFF, 1566px 1474px #FFF, 180px 1323px #FFF, 148px 865px #FFF, 196px 303px #FFF, 58px 343px #FFF, 1314px 391px #FFF, 1540px 424px #FFF, 829px 1898px #FFF, 1871px 411px #FFF, 286px 1553px #FFF, 1453px 1290px #FFF, 1874px 470px #FFF, 1338px 393px #FFF, 1613px 11px #FFF, 1575px 312px #FFF, 418px 1672px #FFF, 1640px 1285px #FFF, 193px 8px #FFF, 464px 1088px #FFF, 1499px 1634px #1ACDD1, 1104px 1978px #FFF, 504px 1462px #FFF, 1120px 1254px #FFF, 643px 757px #FFF, 333px 832px #1ACDD1, 1285px 1515px #FFF, 1002px 960px #FFF, 576px 1431px #FFF, 1524px 971px #FFF, 1659px 740px #FFF, 1939px 694px #FFF, 1575px 1222px #FFF, 500px 365px #FFF, 838px 875px #FFF, 1901px 1349px #FFF, 1028px 1784px #FFF, 935px 269px #FFF, 1839px 746px #FFF, 1882px 16px #FFF, 1221px 1077px #FFF, 148px 321px #FFF, 983px 1466px #E86439, 1327px 1181px #FFF, 516px 1232px #FFF, 1129px 1348px #FFF, 1962px 61px #FFF, 1487px 1480px #FFF, 1889px 1173px #FFF, 1139px 1737px #FFF, 679px 1475px #FFF, 1556px 932px #FFF, 1938px 560px #FFF, 1569px 546px #FFF, 1619px 1851px #FFF, 119px 237px #FFF, 1111px 368px #FF0266 , 74px 1778px #FF0266 , 1346px 1193px #FF0266 , 381px 885px #FFF, 1220px 52px #FF0266 , 849px 1155px #FF0266 , 1559px 180px #FF0266 , 1536px 881px #FF0266 , 1147px 824px #FF0266 , 1868px 1852px #FF0266 , 1158px 892px #FFF, 717px 136px #FFF, 387px 1191px #FFF, 1492px 168px #FFF, 1727px 665px #FFF, 688px 226px #FFF, 1448px 1329px #FFF, 1882px 596px #FFF, 1005px 1554px #FFF, 1893px 1343px #FFF, 738px 1036px #FFF, 1494px 82px #FFF, 135px 221px #FFF, 1289px 840px #FFF, 68px 42px #FFF, 734px 876px #FFF, 1063px 1091px #FFF, 410px 1291px #FFF, 1341px 22px #FFF, 753px 387px #FFF, 1545px 1172px #FFF, 1354px 1144px #FFF, 1643px 441px #FFF, 1594px 610px #FFF, 251px 137px #FFF, 690px 1125px #FFF, 64px 162px #FFF, 1058px 383px #FFF, 1162px 586px #7300ff, 1310px 836px #E86439, 775px 1846px #7300ff, 1802px 574px #7300ff, 1040px 1543px #7300ff, 885px 1291px #E86439, 1396px 1039px #7300ff, 665px 1812px #7300ff, 819px 1993px #7300ff, 127px 1873px #7300ff, 557px 948px #FFF, 525px 1469px #7300ff, 1500px 1544px #7300ff, 1466px 1587px #7300ff, 1984px 961px #7300ff, 1860px 1848px #7300ff, 1060px 1761px #7300ff, 1907px 313px #7300ff, 1367px 850px #7300ff, 1714px 193px #7300ff, 786px 38px #7300ff, 1169px 1910px #FFF, 1782px 1960px #7300ff, 1751px 379px #E86439, 278px 260px #7300ff, 101px 405px #FFF, 315px 286px #FFF, 1770px 1739px #FFF, 425px 1854px #FFF, 1040px 1816px #FFF, 1771px 1608px #FFF, 64px 285px #FFF, 253px 1429px #FFF, 524px 239px #FFF, 1551px 77px #FFF, 1670px 349px #FFF, 837px 403px #FFF, 696px 1492px #FFF, 1225px 751px #FFF, 61px 797px #FFF, 1715px 1683px #FFF, 1176px 806px #FFF, 167px 965px #FFF, 959px 210px #FFF, 1648px 745px #FFF, 1591px 1091px #FFF, 1982px 1949px #FFF, 1807px 86px #FFF, 137px 1221px #FFF, 1674px 1042px #FFF, 1635px 288px #FFF, 1983px 247px #FFF, 979px 1677px #FFF, 210px 726px #FFF, 375px 770px #FFF, 1512px 752px #FFF, 1664px 1532px #FFF, 8px 221px #FFF, 971px 1668px #FFF, 1243px 1935px #FFF, 1014px 1836px #FFF, 1063px 210px #FFF, 1871px 850px #FFF, 952px 408px #FFF, 121px 926px #FFF, 526px 1993px #FFF, 1616px 481px #FFF, 1441px 492px #FFF, 456px 1013px #FFF, 1370px 1753px #FFF, 1149px 137px #FFF, 844px 1568px #FFF, 727px 1038px #FFF, 1622px 1964px #FFF, 745px 402px #FFF, 468px 1655px #FFF, 1380px 1718px #FFF, 41px 4px #FFF, 955px 1131px #FFF, 1524px 587px #FFF, 1598px 1384px #FFF, 590px 1914px #FFF, 645px 1994px #FFF, 1696px 667px #FFF, 1772px 53px #FFF, 1336px 25px #FFF, 331px 887px #FFF, 1224px 1292px #FFF, 666px 1276px #FFF, 386px 367px #FFF, 747px 1748px #1ACDD1, 850px 1193px #FFF, 1657px 1535px #FFF, 178px 1859px #FFF, 313px 615px #FFF, 1737px 1009px #FFF, 451px 241px #FFF, 1712px 1603px #FFF, 263px 38px #FFF, 1441px 1511px #FFF, 1035px 782px #FFF, 755px 112px #FFF, 879px 1214px #FFF, 445px 1417px #FFF, 467px 362px #FFF, 263px 1198px #FFF, 471px 1516px #FFF, 985px 1319px #FFF, 464px 1348px #FFF, 1669px 910px #FFF, 497px 925px #FFF, 738px 1155px #FFF, 1489px 1982px #FFF, 1643px 575px #FFF, 1387px 194px #FFF, 1375px 1490px #FFF, 845px 295px #FFF, 785px 325px #FFF, 704px 401px #FFF, 532px 83px #FFF, 1390px 1508px #FFF, 1481px 720px #FFF, 1818px 937px #FFF, 1989px 976px #FFF, 642px 1965px #FFF, 1032px 1018px #FFF, 1132px 1575px #FFF, 420px 728px #FFF, 867px 241px #FFF, 323px 265px #FFF, 229px 573px #FFF, 119px 1854px #FFF, 947px 106px #FFF, 1264px 1178px #FFF, 1614px 1429px #FFF, 1172px 811px #FFF, 1247px 1441px #FFF, 1867px 418px #FFF, 180px 904px #FFF, 1693px 1967px #FFF, 1899px 1218px #FFF, 1488px 460px #FFF, 1774px 360px #FFF, 306px 250px #FFF, 934px 242px #FFF, 731px 1344px #FFF, 1573px 1087px #FFF, 139px 1888px #FFF, 603px 1160px #FFF, 1411px 314px #FFF, 421px 1016px #FFF, 829px 1568px #FFF, 1319px 199px #FFF, 1586px 1316px #FFF, 830px 1008px #FFF, 133px 659px #FFF, 390px 737px #E86439, 1739px 1708px #FFF, 1994px 1806px #FFF, 721px 1901px #FFF, 1861px 1222px #FFF, 997px 1759px #FFF, 674px 1599px #FFF, 322px 1215px #FFF, 1698px 308px #FFF, 911px 478px #FFF, 1722px 1884px #FFF, 103px 71px #FFF, 513px 424px #FFF, 618px 1074px #FFF, 8px 913px #FFF, 1322px 583px #FFF, 1603px 230px #FFF, 1857px 1046px #FFF, 126px 583px #FFF, 577px 158px #FFF, 1779px 985px #FFF, 142px 821px #FFF, 1172px 98px #FFF, 183px 1602px #FFF, 1531px 1129px #FFF, 328px 318px #FFF, 197px 1680px #FFF, 632px 412px #FFF, 359px 416px #FFF, 704px 1449px #FFF, 409px 415px #FFF, 27px 829px #FFF, 1528px 1075px #FFF, 1501px 868px #FFF, 1501px 1723px #FFF, 375px 772px #FFF, 12px 781px #FFF, 1284px 1785px #FFF, 280px 1776px #FFF, 1122px 1307px #FFF, 982px 1098px #FFF, 1278px 394px #FFF, 439px 1555px #FFF, 1154px 401px #FFF, 1317px 1313px #FFF, 551px 750px #FFF, 1350px 1392px #FFF, 1386px 544px #FFF, 860px 1745px #FFF, 1164px 571px #FFF, 14px 1522px #FFF, 1047px 1740px #FF0266 , 1425px 1697px #FF0266 , 1093px 1473px #FF0266 , 1827px 1566px #FF0266 , 1759px 1732px #FFF, 327px 1195px #FFF, 138px 1788px #FFF, 1280px 499px #FFF, 391px 1907px #FFF, 662px 937px #FFF, 1612px 871px #FFF, 147px 1755px #FFF, 562px 549px #FFF, 1843px 1808px #FFF, 1216px 385px #FFF, 944px 730px #FFF, 304px 223px #FFF, 801px 1487px #FFF, 496px 301px #FFF, 1476px 1828px #FFF, 228px 1311px #FFF, 1117px 374px #FFF, 986px 1637px #FFF, 366px 1044px #FFF, 1003px 1192px #FFF, 420px 1821px #FFF, 1425px 835px #FFF, 219px 1890px #FFF, 1493px 61px #FFF, 766px 1189px #FFF, 159px 431px #FFF, 252px 336px #FFF, 1714px 1743px #FFF, 778px 674px #FFF, 1959px 1137px #FFF, 979px 677px #FFF, 1104px 214px #FFF;
+}
+
+/* Medium stars */
+#stars2 {
+  width: 2px; height: 2px; background: transparent;
+  border-radius: 10px;
+  box-shadow: 444px 26px #FFF, 644px 550px #FFF, 428px 426px #FFF, 12px 1913px #FFF, 680px 225px #FFF, 1346px 474px #FFF, 6px 1693px #FFF, 1555px 996px #FFF, 579px 1620px #FFF, 364px 1911px #FFF, 282px 1788px #FFF, 280px 337px #FFF, 1880px 1547px #FF0266 , 1531px 1567px #FF0266 , 193px 1099px #FF0266 , 1540px 17px #FF0266 , 1774px 292px #FF0266 , 183px 775px #FF0266 , 214px 107px #FFF, 695px 88px #FFF, 490px 1209px #FFF, 1374px 560px #FFF, 752px 1759px #FFF, 1985px 866px #FFF, 609px 310px #FFF, 86px 1036px #FFF, 638px 191px #FFF, 1635px 626px #FFF, 78px 998px #FFF, 1189px 1345px #FFF, 48px 1383px #FFF, 1981px 345px #FFF, 1993px 1838px #FFF, 717px 1540px #FFF, 287px 673px #FFF, 1821px 1665px #FFF, 686px 600px #FFF, 572px 777px #FFF, 932px 537px #FFF, 1808px 1538px #FFF, 1563px 305px #FFF, 1771px 1974px #FFF, 393px 1768px #FFF, 368px 1426px #FFF, 434px 779px #FFF, 566px 1370px #FFF, 261px 791px #FFF, 141px 434px #1ACDD1, 1070px 106px #FFF, 307px 779px #FFF, 215px 1411px #FFF, 1789px 330px #FFF, 912px 724px #FFF, 639px 816px #FFF, 1354px 991px #FFF, 1998px 477px #FFF, 5px 1499px #FFF, 669px 135px #FFF, 961px 593px #FFF, 411px 629px #FFF, 1553px 969px #FFF, 1739px 1533px #FFF, 1860px 440px #FFF, 568px 23px #FFF, 822px 1508px #FFF, 1685px 267px #FFF, 1906px 369px #FFF, 1884px 783px #FFF, 1753px 1728px #FFF, 1401px 258px #FFF, 1962px 1204px #FFF, 1890px 816px #FFF, 1873px 641px #FFF, 1315px 1410px #FFF, 25px 434px #FFF, 330px 1299px #FFF, 679px 397px #FFF, 1561px 1197px #FFF, 354px 801px #FFF, 1803px 577px #FFF, 406px 822px #FFF, 1062px 641px #7300ff, 1449px 1905px #7300ff, 1912px 1971px #7300ff, 172px 718px #7300ff, 227px 477px #7300ff, 586px 1527px #7300ff, 1215px 326px #E86439, 104px 293px #7300ff, 667px 536px #7300ff, 1943px 1800px #E86439, 992px 269px #7300ff, 1896px 795px #1ACDD1, 1907px 1066px #7300ff, 1188px 1519px #7300ff, 467px 1622px #1ACDD1, 1326px 1651px #FFF, 1820px 1089px #FFF, 1012px 516px #FFF, 1841px 299px #FFF, 1437px 313px #FFF, 40px 1643px #FFF, 1244px 1400px #FFF, 335px 1893px #FFF, 729px 1430px #FFF, 1241px 1046px #FFF, 1335px 241px #FFF, 764px 395px #FFF, 353px 489px #FFF, 531px 862px #FFF, 351px 1607px #FFF, 1443px 21px #FFF, 62px 1781px #FFF, 1926px 1515px #FFF, 1408px 1607px #FFF, 80px 692px #FFF, 523px 102px #FFF, 1609px 1437px #FFF, 652px 948px #E86439, 1246px 1087px #FFF, 94px 1730px #FFF, 838px 732px #FFF, 613px 1055px #FFF, 1765px 490px #FFF, 1307px 962px #FFF, 197px 803px #FFF, 1830px 285px #FFF, 1346px 1930px #FFF, 1089px 570px #FFF, 1583px 1327px #FFF, 297px 1173px #FFF, 993px 819px #FFF, 629px 1443px #FFF, 1773px 564px #FFF, 1757px 1154px #FFF, 615px 1504px #FFF, 1796px 1070px #FFF, 1272px 1228px #FFF, 855px 1601px #FFF, 1378px 1026px #FFF, 1069px 610px #FFF, 1578px 1237px #FFF, 410px 506px #FFF, 443px 1746px #FF0266 , 744px 1416px #FF0266 , 321px 1443px #FF0266 , 999px 384px #FF0266 , 100px 245px #FF0266 , 836px 394px #FF0266 , 1254px 718px #FF0266 , 1024px 59px #FF0266 , 1687px 1065px #FF0266 , 1975px 1473px #FFF, 172px 1058px #FFF, 977px 1672px #FFF, 1797px 367px #FFF, 1555px 580px #FFF, 944px 944px #FFF, 1925px 458px #FFF, 707px 840px #FFF, 1784px 97px #FFF, 1380px 1943px #FFF, 1257px 1347px #FFF, 1814px 1359px #FFF, 341px 327px #7300ff, 1126px 693px #7300ff, 677px 1621px #7300ff, 1940px 1982px #7300ff, 1654px 1269px #7300ff, 741px 1483px #FFF, 1889px 93px #FFF, 199px 70px #FFF, 1378px 1780px #FFF, 1887px 439px #FFF, 895px 130px #FFF, 1186px 1162px #FFF, 428px 1806px #FFF, 1420px 451px #FFF, 871px 1996px #FFF, 535px 1013px #FFF, 766px 1794px #FFF, 1823px 1514px #FFF, 1929px 610px #FFF, 629px 1965px #FFF, 1247px 1154px #FFF, 688px 242px #FFF, 798px 1471px #FFF, 1048px 1943px #FFF, 1372px 443px #FFF, 202px 312px #FFF, 728px 435px #FFF, 1258px 1514px #FFF, 473px 14px #FFF, 593px 721px #FFF, 1325px 1453px #FFF, 164px 1833px #FFF, 1050px 191px #FFF, 1965px 110px #FFF, 1047px 1757px #FFF, 1643px 1744px #FFF;
+  animation: animStar 400s linear infinite;
+}
+#stars2::after {
+  content: ""; position: absolute; top: 2000px;
+  width: 2px; height: 2px; background: transparent;
+  border-radius: 10px;
+  box-shadow: 444px 26px #FFF, 644px 550px #FFF, 428px 426px #FFF, 12px 1913px #FFF, 680px 225px #FFF, 1346px 474px #FFF, 6px 1693px #FFF, 1555px 996px #FFF, 579px 1620px #FFF, 364px 1911px #FFF, 282px 1788px #FFF, 280px 337px #FFF, 1880px 1547px #FFF, 1531px 1567px #FFF, 193px 1099px #FFF, 1540px 17px #FFF, 1774px 292px #FF0266 , 183px 775px #FF0266 , 214px 107px #FF0266 , 695px 88px #FF0266 , 490px 1209px #FF0266 , 1374px 560px #FF0266 , 752px 1759px #7300ff, 1985px 866px #7300ff, 609px 310px #7300ff, 86px 1036px #7300ff, 638px 191px #7300ff, 1635px 626px #7300ff, 78px 998px #7300ff, 1189px 1345px #7300ff, 48px 1383px #7300ff, 1981px 345px #7300ff, 1993px 1838px #7300ff, 717px 1540px #7300ff, 287px 673px #7300ff, 1821px 1665px #7300ff, 686px 600px #7300ff, 572px 777px #FFF, 932px 537px #FFF, 1808px 1538px #FFF, 1563px 305px #FFF, 1771px 1974px #FFF, 393px 1768px #FFF, 368px 1426px #FFF, 434px 779px #FFF, 566px 1370px #FFF, 261px 791px #FFF, 141px 434px #FFF, 1070px 106px #E86439, 307px 779px #FFF, 215px 1411px #E86439, 1789px 330px #FFF, 912px 724px #FFF, 639px 816px #FFF, 1354px 991px #FFF, 1998px 477px #E86439, 5px 1499px #FFF, 669px 135px #FFF, 961px 593px #FFF, 411px 629px #E86439, 1553px 969px #E86439, 1739px 1533px #E86439, 1860px 440px #FFF, 568px 23px #FFF, 822px 1508px #FFF, 1685px 267px #FFF, 1906px 369px #FFF, 1884px 783px #FFF, 1753px 1728px #FFF, 1401px 258px #FFF, 1962px 1204px #FFF, 1890px 816px #FFF, 1873px 641px #FFF, 1315px 1410px #FFF, 25px 434px #FFF, 330px 1299px #FFF, 679px 397px #FFF, 1561px 1197px #FFF, 354px 801px #FFF, 1803px 577px #FFF, 406px 822px #FFF, 1062px 641px #FFF, 1449px 1905px #FFF, 1912px 1971px #FFF, 172px 718px #FFF, 227px 477px #FFF, 586px 1527px #FFF, 1215px 326px #FFF, 104px 293px #FFF, 667px 536px #FFF, 1943px 1800px #FFF, 992px 269px #FFF, 1896px 795px #FFF, 1907px 1066px #FFF, 1188px 1519px #FFF, 467px 1622px #FFF, 1326px 1651px #FFF, 1820px 1089px #FFF, 1012px 516px #FFF, 1841px 299px #FFF, 1437px 313px #FFF, 40px 1643px #FFF, 1244px 1400px #FFF, 335px 1893px #FFF, 729px 1430px #FFF, 1241px 1046px #FFF, 1335px 241px #FFF, 764px 395px #FFF, 353px 489px #FFF, 531px 862px #FFF, 351px 1607px #FFF, 1443px 21px #FFF, 62px 1781px #FFF, 1926px 1515px #FFF, 1408px 1607px #FFF, 80px 692px #FFF, 523px 102px #FFF, 1609px 1437px #FFF, 652px 948px #FFF, 1246px 1087px #FFF, 94px 1730px #FFF, 838px 732px #FFF, 613px 1055px #FFF, 1765px 490px #FFF, 1307px 962px #FFF, 197px 803px #FFF, 1830px 285px #FFF, 1346px 1930px #FFF, 1089px 570px #FFF, 1583px 1327px #FFF, 297px 1173px #E86439, 993px 819px #7300ff, 629px 1443px #7300ff, 1773px 564px #7300ff, 1757px 1154px #7300ff, 615px 1504px #7300ff, 1796px 1070px #7300ff, 1272px 1228px #7300ff, 855px 1601px #7300ff, 1378px 1026px #7300ff, 1069px 610px #7300ff, 1578px 1237px #7300ff, 410px 506px #7300ff, 443px 1746px #FF0266 , 744px 1416px #FF0266 , 321px 1443px #FF0266 , 999px 384px #FF0266 , 100px 245px #FFF, 836px 394px #FFF, 1254px 718px #FFF, 1024px 59px #FFF, 1687px 1065px #FFF, 1975px 1473px #FFF, 172px 1058px #FFF, 977px 1672px #FFF, 1797px 367px #FFF, 1555px 580px #FFF, 944px 944px #FFF, 1925px 458px #FFF, 707px 840px #FFF, 1784px 97px #FFF, 1380px 1943px #FFF, 1257px 1347px #FFF, 1814px 1359px #FFF, 341px 327px #FFF, 1126px 693px #FFF, 677px 1621px #FFF, 1940px 1982px #FFF, 1654px 1269px #FFF, 741px 1483px #FFF, 1889px 93px #FFF, 199px 70px #FFF, 1378px 1780px #FFF, 1887px 439px #FFF, 895px 130px #FFF, 1186px 1162px #FFF, 428px 1806px #FFF, 1420px 451px #FFF, 871px 1996px #FFF, 535px 1013px #FFF, 766px 1794px #FFF, 1823px 1514px #FFF, 1929px 610px #FFF, 629px 1965px #FFF, 1247px 1154px #FFF, 688px 242px #FFF, 798px 1471px #FFF, 1048px 1943px #FFF, 1372px 443px #FFF, 202px 312px #FFF, 728px 435px #FFF, 1258px 1514px #FFF, 473px 14px #FFF, 593px 721px #FFF, 1325px 1453px #FFF, 164px 1833px #FFF, 1050px 191px #FFF, 1965px 110px #FFF, 1047px 1757px #FFF, 1643px 1744px #FFF;
+}
+
+/* Big stars */
+#stars3 {
+  width: 4px; height: 4px; background: transparent;
+  border-radius: 15px;
+  box-shadow: 1208px 1620px #FF0070, 576px 1883px #FFF, 1810px 913px #FFF, 87px 1117px #FFF, 1076px 1851px #FFF, 859px 264px #FFF, 1469px 1346px #FFF, 1651px 1493px #FFF, 767px 822px #FFF, 359px 967px #FFF, 1009px 808px #FF0070, 100px 1656px #7300ff, 1365px 1511px #7300ff, 429px 1279px #7300ff, 1381px 1850px #E86439, 1896px 1999px #E86439, 236px 718px #7300ff, 39px 1731px #7300ff, 562px 1084px #7300ff, 1067px 1431px #FF0266 , 1362px 1575px #FF0266 , 953px 1860px #FF0266 , 1498px 499px #FF0266 , 1055px 885px #FFF, 1824px 1334px #FFF, 519px 1319px #FFF, 1716px 1538px #FFF, 1305px 524px #FFF, 808px 1972px #FFF, 426px 649px #FFF, 882px 1530px #FFF, 623px 557px #FFF, 129px 1750px #FF0070, 1220px 646px #FFF, 441px 1797px #FFF, 1526px 1032px #FFF, 1301px 568px #FFF, 172px 40px #FFF, 364px 489px #FFF, 516px 1786px #FFF, 1218px 1864px #FFF, 888px 199px #FFF, 1852px 1046px #FFF, 460px 907px #FFF, 202px 1519px #FFF, 238px 1294px #FFF, 261px 955px #FFF, 1947px 1249px #FFF, 1527px 2px #FFF, 696px 553px #FFF, 80px 681px #FFF, 1778px 1610px #FFF, 936px 1498px #FFF, 1912px 1309px #FFF, 14px 1417px #FFF, 1784px 1888px #FFF, 989px 22px #FFF, 1892px 1420px #FFF, 1803px 411px #FFF, 1854px 1371px #FFF, 1095px 1627px #FFF, 89px 1862px #E86439, 1562px 1960px #FFF, 1436px 1174px #7300ff, 1929px 1025px #7300ff, 1623px 1817px #1ACDD1, 1320px 1371px #E86439, 789px 750px #7300ff, 1934px 2000px #FFF, 1657px 238px #FFF, 597px 1213px #FF0266 , 220px 147px #FF0266 , 1466px 1933px #E86439, 254px 1672px #FFF, 1272px 1117px #FFF, 1364px 1831px #FFF, 668px 1228px #E86439, 388px 1234px #FFF, 776px 1969px #FFF, 1615px 1121px #FFF, 1029px 429px #FFF, 1575px 91px #FFF, 1974px 896px #FFF, 1176px 758px #FFF, 1936px 1211px #FFF, 1802px 568px #FFF, 257px 1188px #FFF, 599px 1393px #FFF, 1145px 49px #FFF, 481px 1942px #FFF, 864px 981px #FFF, 1776px 1502px #FFF, 1962px 917px #FFF, 496px 56px #FFF, 1978px 748px #FFF, 878px 717px #FFF, 181px 508px #FFF, 1573px 424px #FFF, 747px 594px #FFF, 539px 1421px #FFF;
+  animation: animStar 500s linear infinite;
+}
+#stars3::after {
+  content: ""; position: absolute; top: 2000px;
+  width: 3px; height: 3px; background: transparent;
+  border-radius: 20px;
+  box-shadow: 1208px 1620px #FFF, 576px 1883px #7300ff, 1810px 913px #7300ff, 87px 1117px #7300ff, 1076px 1851px #7300ff, 859px 264px #E86439, 1469px 1346px #FFF, 1651px 1493px #FFF, 767px 822px #FFF, 359px 967px #FFF, 1009px 808px #FFF, 100px 1656px #FFF, 1365px 1511px #FFF, 429px 1279px #E86439, 1381px 1850px #1ACDD1, 1896px 1999px #FFF, 236px 718px #FFF, 39px 1731px #FFF, 562px 1084px #FFF, 1067px 1431px #E86439, 1362px 1575px #FFF, 953px 1860px #FFF, 1498px 499px #FFF, 1055px 885px #FFF, 1824px 1334px #FFF, 519px 1319px #FF0266 , 1716px 1538px #FF0266 , 1305px 524px #FF0266 , 808px 1972px #FF0266 , 426px 649px #FF0266 , 882px 1530px #FF0266 , 623px 557px #FF0266 , 129px 1750px #FFF, 1220px 646px #FFF, 441px 1797px #FFF, 1526px 1032px #FFF, 1301px 568px #FFF, 172px 40px #FFF, 364px 489px #FFF, 516px 1786px #FFF, 1218px 1864px #FFF, 888px 199px #FFF, 1852px 1046px #FFF, 460px 907px #FFF, 202px 1519px #FFF, 238px 1294px #FFF, 261px 955px #FFF, 1947px 1249px #FFF, 1527px 2px #FFF, 696px 553px #FFF, 80px 681px #FFF, 1778px 1610px #FFF, 936px 1498px #FFF, 1912px 1309px #FFF, 14px 1417px #7300ff, 1784px 1888px #7300ff, 989px 22px #7300ff, 1892px 1420px #7300ff, 1803px 411px #7300ff, 1854px 1371px #E86439, 1095px 1627px #7300ff, 89px 1862px #7300ff, 1562px 1960px #FFF, 1436px 1174px #E86439, 1929px 1025px #FFF, 1623px 1817px #FFF, 1320px 1371px #FFF, 789px 750px #FFF, 1934px 2000px #FFF, 1657px 238px #E86439, 597px 1213px #E86439, 220px 147px #E86439, 1466px 1933px #E86439, 254px 1672px #E86439, 1272px 1117px #FFF, 1364px 1831px #FFF, 668px 1228px #FFF, 388px 1234px #FFF, 776px 1969px #1ACDD1, 1615px 1121px #FFF, 1029px 429px #FF0266 , 1575px 91px #FF0266 , 1974px 896px #FFF, 1176px 758px #FFF, 1936px 1211px #FFF, 1802px 568px #FFF, 257px 1188px #FFF, 599px 1393px #FFF, 1145px 49px #FFF, 481px 1942px #FFF, 864px 981px #FFF, 1776px 1502px #FFF, 1962px 917px #FFF, 496px 56px #FFF, 1978px 748px #FFF, 878px 717px #FFF, 181px 508px #FFF, 1573px 424px #FFF, 747px 594px #FFF, 539px 1421px #FFF;
+}
+
+@keyframes animStar {
+  from { transform: translateY(0px); }
+  to   { transform: translateY(-2000px); }
+}
+
+/* Hide/remove old background layers so the new one is visible */
+#background-container, #background-gradient, .orb, #orb-1, #orb-2, #orb-3 {
+  display: none !important;
+}
+
+</style>
+</head>
+\1
+
+<!-- Replaced Background: Starfield -->
+<div id="starfield" aria-hidden="true">
+  <div id="stars"></div>
+  <div id="stars1"></div>
+  <div id="stars2"></div>
+  <div id="stars3"></div>
+</div>
+
+</body>
+<body class="p-2 sm:p-4">
+    <!-- NEW: Background elements -->
+
+
+</div>
+    <div id="noise-overlay"></div>
+
+    <!-- EDITED: Added a class for layout control -->
+    <div class="relative z-10 content-wrapper">
+        <div id="header-container">
+            <header class="app-header glass-panel">
+                <div class="header-row">
+                    <div class="username-area">
+                        <input type="text" id="usernameInput" placeholder="Sleeper Username..." value="The_Oracle">
+                    </div>
+                    <div class="app-view-switcher primary-switcher">
+                        <button id="fetchRostersButton">Rosters</button>
+                        <button id="fetchOwnershipButton">Ownership %</button>
+                    </div>
+                </div>
+                
+                <div id="contextual-controls" class="hidden">
+                    <div class="header-row">
+                        <div class="custom-select-wrapper">
+                            <select id="leagueSelect" disabled>
+                                <option>Select a league...</option>
+                            </select>
+                        </div>
+                        <div class="view-switcher secondary-switcher">
+                            <button id="positionalViewBtn">Positional</button>
+                            <button id="depthChartViewBtn">Lineup</button>
+                        </div>
+                    </div>
+                    <div class="header-row">
+                        <div id="positional-filters">
+                            <button data-position="QB" class="filter-btn">QB</button>
+                            <button data-position="RB" class="filter-btn">RB</button>
+                            <button data-position="WR" class="filter-btn">WR</button>
+                            <button data-position="TE" class="filter-btn">TE</button>
+                            <button data-position="FLX" class="filter-btn">FLX</button>
+                        </div>
+                  <div class="compare-controls">
+                             <button id="compareButton" class="control-button" disabled>Preview</button>
+                             <button id="clearCompareButton" class="control-button-subtle hidden">Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+        </div>
+        <main id="content" class="container mx-auto">
+            <div id="welcome-screen">
+                <h2>Welcome to the Sleeper Tool</h2>
+                <p>Enter a Sleeper username and click 'Rosters' or 'Ownership %' to get started.</p>
+            </div>
+            <div id="loading" class="hidden">Loading...</div>
+            
+            <div id="rosterView" class="hidden">
+                <div id="rosterContainer">
+                     <div id="rosterGrid"></div>
+                </div>
+            </div>
+
+            <div id="playerListView" class="hidden">
+                </div>
+        </main>
+
+        <div id="tradeSimulator">
+            </div>
+    </div>
+    
+    <script>
+        // --- DOM Elements ---
+        const usernameInput = document.getElementById('usernameInput');
+        const fetchRostersButton = document.getElementById('fetchRostersButton');
+        const fetchOwnershipButton = document.getElementById('fetchOwnershipButton');
+        const leagueSelect = document.getElementById('leagueSelect');
+        const contextualControls = document.getElementById('contextual-controls');
+        const rosterControls = document.getElementById('rosterControls');
+        const loadingIndicator = document.getElementById('loading');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const rosterView = document.getElementById('rosterView');
+        const playerListView = document.getElementById('playerListView');
+        const rosterContainer = document.getElementById('rosterContainer');
+        const rosterGrid = document.getElementById('rosterGrid');
+        const compareButton = document.getElementById('compareButton');
+        const clearCompareButton = document.getElementById('clearCompareButton');
+        const positionalViewBtn = document.getElementById('positionalViewBtn');
+        const depthChartViewBtn = document.getElementById('depthChartViewBtn');
+        const viewControls = document.getElementById('view-controls');
+        const positionalFiltersContainer = document.getElementById('positional-filters');
+        const tradeSimulator = document.getElementById('tradeSimulator');
+        const mainContent = document.getElementById('content');
+
+        // --- State ---
+        let state = { userId: null, leagues: [], players: {}, oneQbData: {}, sflxData: {}, currentLeagueId: null, isSuperflex: false, cache: {}, teamsToCompare: new Set(), isCompareMode: false, currentRosterView: 'positional', activePositions: new Set(), tradeBlock: {} };
+        const assignedLeagueColors = new Map();
+        let nextColorIndex = 0;
+        const assignedRyColors = new Map();
+        let nextRyColorIndex = 0;
+
+        // --- Constants ---
+        const API_BASE = 'https://api.sleeper.app/v1';
+        const GOOGLE_SHEET_ID = '1MDTf1IouUIrm4qabQT9E5T0FsJhQtmaX55P32XK5c_0';
+        const TAG_COLORS = { QB:"var(--pos-qb)", RB:"var(--pos-rb)", WR:"var(--pos-wr)", TE:"var(--pos-te)", BN:"var(--pos-bn)", TX:"var(--pos-tx)", FLX: "var(--pos-flx)", SFLX: "var(--pos-sflx)" };
+        const STARTER_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPER_FLEX'];
+        const TEAM_COLORS = { ARI:"#97233F", ATL:"#A71930", BAL:"#241773", BUF:"#00338D", CAR:"#0085CA", CHI:"#1a2d4e", CIN:"#FB4F14", CLE:"#311D00", DAL:"#003594", DEN:"#FB4F14", DET:"#0076B6", GB:"#203731", HOU:"#03202F", IND:"#002C5F", JAX:"#006778", KC:"#E31837", LAC:"#0080C6", LAR:"#003594", LV:"#A5ACAF", MIA:"#008E97", MIN:"#4F2683", NE:"#002244", NO:"#D3BC8D", NYG:"#0B2265", NYJ:"#125740", PHI:"#004C54", PIT:"#FFB612", SEA:"#69BE28", SF:"#B3995D", TB:"#D50A0A", TEN:"#4B92DB", WAS:"#5A1414", FA: "#64748b" };
+        const LEAGUE_COLOR_PALETTE = ['#e8d28a', '#bfeee5', '#d9d0ff', '#cfe9ff', '#ffd6e7', '#d9ffcf', '#ffc7a8', '#a8d8ff', '#f2c8ff', '#c8ffde'];
+        const RY_COLOR_PALETTE = ['#d7f2ff', '#cfe9ff', '#e0f6ea', '#fff1d6', '#efe2ff', '#ffe0ea', '#e4f0ff'];
+              const LEAGUE_ABBR_OVERRIDES = {
+            "ff d-league": "DL",
+            "the most important league": "TMIL",
+            "big boofers club bbc": "BBC",
+            "trade hoard eat league": "THE",
+            "dynasty footballers": "DFB", "la leaguaaa dynasty est2024": "LLGA",
+            "la leaugaaa dynasty est2024": "LLGA"
+        };
+
+        // --- Event Listeners ---
+        fetchRostersButton.addEventListener('click', handleFetchRosters);
+        fetchOwnershipButton.addEventListener('click', handleFetchOwnership);
+        leagueSelect.addEventListener('change', handleLeagueSelect);
+        rosterGrid.addEventListener('click', handleTeamSelect);
+        mainContent.addEventListener('click', handleAssetClickForTrade);
+        compareButton.addEventListener('click', handleCompareClick);
+        clearCompareButton.addEventListener('click', () => handleClearCompare(true));
+        positionalViewBtn.addEventListener('click', () => setRosterView('positional'));
+        depthChartViewBtn.addEventListener('click', () => setRosterView('depth'));
+        positionalFiltersContainer.addEventListener('click', handlePositionFilter);
+        
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            setLoading(true, 'Loading initial data...');
+            await Promise.all([ fetchSleeperPlayers(), fetchDataFromGoogleSheet() ]);
+            setLoading(false);
+            welcomeScreen.classList.remove('hidden');
+        });
+
+        // --- View Toggling and Main Handlers ---
+        function setRosterView(view) {
+            state.currentRosterView = view;
+            const isPositional = view === 'positional';
+            positionalViewBtn.classList.toggle('active', isPositional);
+            depthChartViewBtn.classList.toggle('active', !isPositional);
+
+            positionalViewBtn.classList.toggle('counterpart-active', !isPositional);
+            depthChartViewBtn.classList.toggle('counterpart-active', isPositional);
+
+            if (state.currentTeams) {
+                renderAllTeamData(state.currentTeams);
+            }
+        }
+
+        function updateButtonStates(activeButton) {
+            const isRosters = activeButton === 'rosters';
+            fetchRostersButton.classList.toggle('active', isRosters);
+            fetchOwnershipButton.classList.toggle('active', !isRosters);
+
+            fetchRostersButton.classList.toggle('counterpart-active', !isRosters);
+            fetchOwnershipButton.classList.toggle('counterpart-active', isRosters);
+        }
+
+        async function handleFetchRosters() {
+            const username = usernameInput.value.trim();
+            if (!username) return;
+            
+            setLoading(true, 'Fetching user leagues...');
+            
+            try {
+                await fetchAndSetUser(username);
+                const leagues = await fetchUserLeagues(state.userId);
+                state.leagues = leagues.sort((a, b) => a.name.localeCompare(b.name));
+                
+                updateButtonStates('rosters');
+                contextualControls.classList.remove('hidden');
+                playerListView.classList.add('hidden');
+                rosterView.classList.remove('hidden');
+                setRosterView('positional'); // Set default view
+                
+                populateLeagueSelect(state.leagues);
+
+                if (state.leagues.length > 0) {
+                    leagueSelect.selectedIndex = 1;
+                    await handleLeagueSelect();
+                } else {
+                    contextualControls.classList.add('hidden');
+                }
+            } catch (error) {
+                handleError(error, username);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function handleFetchOwnership() {
+            const username = usernameInput.value.trim();
+            if (!username) return;
+            
+            setLoading(true, 'Fetching ownership data...');
+
+            try {
+                await fetchAndSetUser(username);
+                
+                updateButtonStates('ownership');
+                contextualControls.classList.add('hidden');
+                rosterView.classList.add('hidden');
+                playerListView.classList.remove('hidden');
+
+                await renderPlayerList();
+            } catch (error) {
+                handleError(error, username);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function handleLeagueSelect() {
+            const leagueId = leagueSelect.value;
+            if (!leagueId || leagueId === 'Select a league...') {
+                rosterView.classList.add('hidden');
+                return;
+            };
+            
+            state.currentLeagueId = leagueId;
+            handleClearCompare(); 
+            const leagueInfo = state.leagues.find(l => l.league_id === leagueId);
+            const leagueName = leagueInfo?.name || 'league';
+            setLoading(true, `Loading ${leagueName}...`);
+            rosterGrid.innerHTML = '';
+
+            try {
+                const rosterPositions = leagueInfo.roster_positions;
+                const superflexSlots = rosterPositions.filter(p => p === 'SUPER_FLEX').length;
+                const qbSlots = rosterPositions.filter(p => p === 'QB').length;
+                state.isSuperflex = (superflexSlots > 0) || (qbSlots > 1);
+                
+                const [rosters, users, tradedPicks] = await Promise.all([
+                    fetchWithCache(`${API_BASE}/league/${leagueId}/rosters`),
+                    fetchWithCache(`${API_BASE}/league/${leagueId}/users`),
+                    fetchWithCache(`${API_BASE}/league/${leagueId}/traded_picks`),
+                ]);
+                
+                const teams = processRosterData(rosters, users, tradedPicks, leagueInfo);
+                
+                const userTeam = teams.find(team => team.isUserTeam);
+                if (userTeam) {
+                    state.userTeamName = userTeam.teamName;
+                    state.teamsToCompare.add(userTeam.teamName);
+                } else {
+                    state.userTeamName = null;
+                }
+                updateCompareButtonState();
+
+                renderAllTeamData(teams);
+                
+                rosterView.classList.remove('hidden');
+
+            } catch (error) {
+                console.error(`Error loading league ${leagueId}:`, error);
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        // --- Compare & Trade Logic ---
+        function handleTeamSelect(e) {
+            const header = e.target.closest('.team-header-item');
+            if (header) {
+                const checkbox = header.querySelector('.team-compare-checkbox');
+                const teamName = checkbox.dataset.teamName;
+                checkbox.classList.toggle('selected');
+                if (state.teamsToCompare.has(teamName)) {
+                    state.teamsToCompare.delete(teamName);
+                } else {
+                    state.teamsToCompare.add(teamName);
+                }
+                updateCompareButtonState();
+            }
+        }
+
+        function handleCompareClick() {
+            state.isCompareMode = !state.isCompareMode;
+            rosterView.classList.toggle('is-trade-mode', state.isCompareMode);
+            rosterGrid.classList.toggle('is-preview-mode', state.isCompareMode);
+            updateCompareButtonState();
+            renderAllTeamData(state.currentTeams); 
+            renderTradeBlock();
+        }
+
+        function handleClearCompare(keepUserTeam = false) {
+            const userTeamName = state.currentTeams?.find(team => team.isUserTeam)?.teamName;
+            
+            const teamsToKeep = new Set();
+            if (keepUserTeam && userTeamName && state.teamsToCompare.has(userTeamName)) {
+                teamsToKeep.add(userTeamName);
+            }
+            state.teamsToCompare = teamsToKeep;
+
+            state.isCompareMode = false;
+            rosterView.classList.remove('is-trade-mode');
+            rosterGrid.classList.remove('is-preview-mode');
+            
+            updateCompareButtonState();
+            clearTrade();
+            if (state.currentTeams) {
+                renderAllTeamData(state.currentTeams);
+            }
+        }
+
+        function updateCompareButtonState() {
+            const count = state.teamsToCompare.size;
+            compareButton.disabled = count < 2;
+            clearCompareButton.classList.toggle('hidden', count === 0);
+
+            if (count > 1) {
+                compareButton.classList.add('glow-on-select');
+            } else {
+                compareButton.classList.remove('glow-on-select');
+            }
+
+            if (state.isCompareMode) {
+                compareButton.textContent = 'Show All';
+                compareButton.classList.add('active');
+                compareButton.classList.remove('glow-on-select');
+            } else {
+                compareButton.textContent = 'Preview';
+                compareButton.classList.remove('active');
+            }
+            
+            if (count < 2 && state.isCompareMode) {
+                handleCompareClick(); // Automatically exit compare mode
+            }
+        }
+
+        function handleAssetClickForTrade(e) {
+            if (!state.isCompareMode) return;
+
+            const assetRow = e.target.closest('.player-row, .pick-row');
+            if (!assetRow) return;
+
+            const teamName = assetRow.closest('.roster-column')?.dataset.teamName;
+            if (!teamName || !state.teamsToCompare.has(teamName)) return;
+
+            const { assetId, assetLabel, assetKtc } = assetRow.dataset;
+            if (!assetId) return;
+
+            if (!state.tradeBlock[teamName]) {
+                state.tradeBlock[teamName] = [];
+            }
+
+            const assetIndex = state.tradeBlock[teamName].findIndex(a => a.id === assetId);
+
+            if (assetIndex > -1) {
+                state.tradeBlock[teamName].splice(assetIndex, 1);
+                assetRow.classList.remove('player-selected');
+            } else {
+                state.tradeBlock[teamName].push({
+                    id: assetId,
+                    label: assetLabel,
+                    ktc: parseInt(assetKtc, 10) || 0
+                });
+                assetRow.classList.add('player-selected');
+            }
+            
+            renderTradeBlock();
+        }
+
+        function clearTrade() {
+            state.tradeBlock = {};
+            document.querySelectorAll('.player-selected').forEach(el => el.classList.remove('player-selected'));
+            renderTradeBlock();
+        }
+
+
+        // --- Position Filter Logic ---
+        function handlePositionFilter(e) {
+            if (e.target.tagName !== 'BUTTON') return;
+            const btn = e.target;
+            const position = btn.dataset.position;
+            const flexPositions = ['RB', 'WR', 'TE'];
+
+            if (position === 'FLX') {
+                const isActivating = !state.activePositions.has('FLX');
+                state.activePositions.clear();
+                if (isActivating) {
+                    flexPositions.forEach(p => state.activePositions.add(p));
+                    state.activePositions.add('FLX');
+                }
+            } else {
+                state.activePositions.delete('FLX');
+                if (state.activePositions.has(position)) {
+                    state.activePositions.delete(position);
+                } else {
+                    state.activePositions.add(position);
+                }
+            }
+            
+            updatePositionFilterButtons();
+            renderAllTeamData(state.currentTeams);
+        }
+        
+        function updatePositionFilterButtons() {
+            const buttons = positionalFiltersContainer.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                const pos = btn.dataset.position;
+                btn.classList.toggle('active', state.activePositions.has(pos));
+            });
+        }
+
+
+        // --- Data Fetching & Processing ---
+        async function fetchAndSetUser(username) {
+            const userRes = await fetchWithCache(`${API_BASE}/user/${username}`);
+            if (!userRes || !userRes.user_id) throw new Error('User not found.');
+            state.userId = userRes.user_id;
+        }
+
+        async function fetchUserLeagues(userId) {
+            const currentYear = new Date().getFullYear();
+            const leaguesRes = await fetchWithCache(`${API_BASE}/user/${userId}/leagues/nfl/${currentYear}`);
+            if (!leaguesRes || leaguesRes.length === 0) throw new Error(`No leagues found for this user for ${currentYear}.`);
+            return leaguesRes;
+        }
+
+        async function fetchSleeperPlayers() {
+            try { state.players = await fetchWithCache(`${API_BASE}/players/nfl`); } catch (e) { console.error("Failed to fetch Sleeper players:", e); }
+        }
+        
+        async function fetchDataFromGoogleSheet() {
+            const sheetNames = { oneQb: 'KTC_1QB', sflx: 'KTC_SFLX' };
+            try {
+                const [oneQbCsv, sflxCsv] = await Promise.all([
+                    fetch(`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetNames.oneQb}`).then(res => res.text()),
+                    fetch(`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetNames.sflx}`).then(res => res.text())
+                ]);
+                state.oneQbData = parseSheetData(oneQbCsv);
+                state.sflxData = parseSheetData(sflxCsv);
+            } catch (e) { console.error("Fatal Error: Could not fetch data from Google Sheet.", e); }
+        }
+
+        function parseSheetData(csvText) {
+            const dataMap = {};
+            const lines = csvText.split(/\r?\n/).slice(1);
+            lines.forEach(line => {
+                const columns = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+                if (columns.length < 13) return;
+                const clean = (str) => str ? str.replace(/"/g, '').trim() : '';
+                const pos = clean(columns[2]);
+                const sleeperId = clean(columns[12]);
+                const adp = parseFloat(clean(columns[11]));
+                const ktcValue = parseInt(clean(columns[6]), 10);
+                const posRank = clean(columns[7]);
+                const age = parseFloat(clean(columns[3])); // CORRECTED: Read age from the 4th column (index 3)
+
+                if (pos === 'RDP') {
+                    const pickName = clean(columns[1]);
+                    if (pickName) dataMap[pickName] = { adp: null, ktc: ktcValue, posRank: null };
+                } else if (sleeperId && sleeperId !== 'NA') {
+                    // Add the parsed age to the player's data object
+                    dataMap[sleeperId] = { 
+                        age: isNaN(age) ? null : age, 
+                        adp: isNaN(adp) ? null : adp, 
+                        ktc: isNaN(ktcValue) ? null : ktcValue, 
+                        posRank: posRank 
+                    };
+                }
+            });
+            return dataMap;
+        }
+
+        function processRosterData(rosters, users, tradedPicks, leagueInfo) {
+            const userMap = users.reduce((acc, user) => ({ ...acc, [user.user_id]: user }), {});
+            const rosterPositions = leagueInfo.roster_positions;
+            const taxiSlots = leagueInfo.settings.taxi_slots || 0;
+
+            const teams = rosters.map(roster => {
+                const owner = userMap[roster.owner_id];
+                const allPlayers = roster.players || [];
+                
+                const starterIds = roster.starters || [];
+                const starters = starterIds.map((playerId, index) => {
+                    const slot = rosterPositions[index] || 'FLEX';
+                    return getPlayerData(playerId, slot);
+                }).sort((a, b) => STARTER_ORDER.indexOf(a.slot) - STARTER_ORDER.indexOf(b.slot));
+
+                const currentTaxiPlayers = (roster.taxi || []).map(p => getPlayerData(p, 'TX')).sort((a, b) => (b.ktc || 0) - (a.ktc || 0));
+                const emptyTaxiSlots = Array(Math.max(0, taxiSlots - currentTaxiPlayers.length)).fill({ isPlaceholder: true });
+                const taxi = [...currentTaxiPlayers, ...emptyTaxiSlots];
+
+                const bench = allPlayers.filter(pId => pId && !starterIds.includes(pId) && !(roster.taxi || []).includes(pId));
+                const draftPicks = getOwnedPicks(roster.roster_id, tradedPicks, leagueInfo);
+                
+                return {
+                    isUserTeam: roster.owner_id === state.userId,
+                    teamName: owner?.display_name || `Team ${roster.roster_id}`,
+                    starters,
+                    bench: bench.map(p => getPlayerData(p, 'BN')).sort((a, b) => (b.ktc || 0) - (a.ktc || 0)),
+                    taxi,
+                    draftPicks: draftPicks.map(p => getPickData(p, leagueInfo)),
+                    allPlayers: allPlayers.map(pId => getPlayerData(pId, ''))
+                };
+            });
+            
+            state.currentTeams = teams;
+
+            return teams.sort((a, b) => {
+                if (a.isUserTeam) return -1;
+                if (b.isUserTeam) return 1;
+                return a.teamName.localeCompare(b.teamName);
+            });
+        }
+        
+        function getOwnedPicks(rosterId, tradedPicks, leagueInfo) {
+            const defaultRounds = leagueInfo.settings.draft_rounds || 5;
+            const leagueSeason = parseInt(leagueInfo.season);
+            const firstPickSeason = leagueSeason + 1;
+            let ownedPicks = [];
+
+            for (let i = 0; i < 4; i++) {
+                const season = firstPickSeason + i;
+                for (let round = 1; round <= defaultRounds; round++) {
+                    ownedPicks.push({ season: String(season), round, original_owner_id: rosterId });
+                }
+            }
+
+            tradedPicks.forEach(pick => {
+                if (pick.roster_id === rosterId && pick.owner_id !== rosterId) {
+                    const i = ownedPicks.findIndex(p => p.season === pick.season && p.round === pick.round && p.original_owner_id === rosterId);
+                    if (i > -1) ownedPicks.splice(i, 1);
+                }
+                if (pick.owner_id === rosterId && pick.roster_id !== rosterId) {
+                    if (parseInt(pick.season) >= firstPickSeason) {
+                        ownedPicks.push({ season: pick.season, round: pick.round, original_owner_id: pick.roster_id });
+                    }
+                }
+            });
+            ownedPicks = ownedPicks.filter(p => parseInt(p.season) < 2029);
+            return ownedPicks.sort((a, b) => a.season.localeCompare(b.season) || a.round - b.round);
+        }
+
+        function getPlayerData(playerId, slot) {
+            const player = state.players[playerId];
+            if (!player) return { id: playerId, name: 'Unknown Player', pos: '?', age: '?', team: '?', adp: null, ktc: null, slot, posRank: null };
+            const valueData = state.isSuperflex ? state.sflxData[playerId] : state.oneQbData[playerId];
+            let lastName = player.last_name || '';
+            if (lastName.includes('-')) lastName = lastName.split('-')[0];
+            let displayName = `${player.first_name.charAt(0)}. ${lastName}`;
+            if (displayName.length > 15) displayName = displayName.substring(0, 14) + '…';
+
+            // Prioritize age from the sheet and format it to one decimal place
+            const ageFromSheet = valueData?.age;
+            const formattedAge = (typeof ageFromSheet === 'number') ? ageFromSheet.toFixed(1) : (player.age ? Number(player.age).toFixed(1) : '?');
+
+            return { 
+                id: playerId, 
+                name: displayName, 
+                pos: player.position || '?', 
+                age: formattedAge, // Use the new formatted age
+                team: player.team || 'FA', 
+                adp: valueData?.adp || null, 
+                ktc: valueData?.ktc || null, 
+                slot, 
+                posRank: valueData?.posRank || null 
+            };
+        }
+
+        function getPickData(pick) {
+            const { season, round } = pick;
+            const label = `${season} ${ordinalSuffix(round)}`;
+            const staticVals = { oneqb: { 1: 5200, 2: 3200, 3: 2000, 4: 1200, 5: 400 }, sflx: { 1: 4300, 2: 2600, 3: 1700, 4: 1000, 5: 400 } };
+            let ktc = null;
+            if (parseInt(season) >= 2028 || round >= 5) {
+                ktc = (state.isSuperflex ? staticVals.sflx : staticVals.oneqb)[round] || null;
+            } else {
+                const sfx = round === 1 ? 'st' : round === 2 ? 'nd' : round === 3 ? 'rd' : 'th';
+                const ktcKey = `${season} Mid ${round}${sfx}`;
+                const dataSet = state.isSuperflex ? state.sflxData : state.oneQbData;
+                ktc = dataSet[ktcKey]?.ktc || null;
+            }
+            return { label, ktc, id: `${season}-${round}-${pick.original_owner_id}` };
+        }
+
+        // --- UI Rendering ---
+        function populateLeagueSelect(leagues) {
+            leagueSelect.innerHTML = '<option>Select a league...</option>';
+            leagues.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.league_id;
+                opt.textContent = l.name;
+                leagueSelect.appendChild(opt);
+            });
+            leagueSelect.disabled = false;
+        }
+
+        function renderAllTeamData(teams) {
+            rosterGrid.innerHTML = '';
+            rosterGrid.style.justifyContent = ''; // Reset style
+
+            let teamsToRender = teams;
+            if (state.isCompareMode) {
+                teamsToRender = teams.filter(team => state.teamsToCompare.has(team.teamName));
+                rosterGrid.style.justifyContent = 'center';
+            }
+
+            teamsToRender.forEach(team => {
+                const columnWrapper = document.createElement('div');
+                columnWrapper.className = 'roster-column';
+                columnWrapper.dataset.teamName = team.teamName;
+                
+                const header = document.createElement('div');
+                header.className = 'team-header-item';
+                
+                const checkbox = document.createElement('div');
+                checkbox.className = 'team-compare-checkbox';
+                if (state.teamsToCompare.has(team.teamName)) {
+                    checkbox.classList.add('selected');
+                }
+                checkbox.dataset.teamName = team.teamName;
+                
+                const teamNameSpan = document.createElement('span');
+                teamNameSpan.textContent = team.teamName;
+                
+                header.appendChild(checkbox);
+                header.appendChild(teamNameSpan);
+                
+                const card = state.currentRosterView === 'positional' ? createPositionalTeamCard(team) : createDepthChartTeamCard(team);
+                
+                columnWrapper.appendChild(header);
+                columnWrapper.appendChild(card);
+                rosterGrid.appendChild(columnWrapper);
+            });
+        }
+
+        function createDepthChartTeamCard(team) {
+            const card = document.createElement('div');
+            card.className = 'team-card';
+            card.innerHTML = `<div class="roster-section starters-section"><h3>Starters</h3></div><div class="roster-section bench-section"><h3>Bench</h3></div><div class="roster-section taxi-section"><h3>Taxi</h3></div><div class="roster-section picks-section"><h3>Draft Picks</h3></div>`;
+            
+            const filterActive = state.activePositions.size > 0;
+            const filterFunc = player => !filterActive || state.activePositions.has(player.pos) || (state.activePositions.has('FLX') && ['RB', 'WR', 'TE'].includes(player.pos));
+
+            const populate = (sel, data, creator) => {
+                const el = card.querySelector(sel);
+                const filteredData = data.filter(item => item.isPlaceholder || filterFunc(item));
+                
+                const h3 = el.querySelector('h3');
+                el.innerHTML = '';
+                el.appendChild(h3);
+
+                if (filteredData.length > 0) {
+                    filteredData.forEach(item => el.appendChild(creator(item, team.teamName)));
+                } else {
+                    el.innerHTML += `<div class="text-xs text-slate-500 p-1 italic">None</div>`;
+                }
+            };
+
+            populate('.starters-section', team.starters, createPlayerRow);
+            populate('.bench-section', team.bench, createPlayerRow);
+            populate('.taxi-section', team.taxi, createTaxiRow);
+            
+            const picksEl = card.querySelector('.picks-section');
+            const picksH3 = picksEl.querySelector('h3');
+            picksEl.innerHTML = '';
+            picksEl.appendChild(picksH3);
+            if (team.draftPicks && team.draftPicks.length > 0) {
+                team.draftPicks.forEach(item => picksEl.appendChild(createPickRow(item, team.teamName)));
+            } else {
+                picksEl.innerHTML += `<div class="text-xs text-slate-500 p-1 italic">None</div>`;
+            }
+            return card;
+        }
+
+        function createPositionalTeamCard(team) {
+            const card = document.createElement('div');
+            card.className = 'team-card';
+            card.innerHTML = `
+                <div class="roster-section qb-section"><h3>QB</h3></div>
+                <div class="roster-section rb-section"><h3>RB</h3></div>
+                <div class="roster-section wr-section"><h3>WR</h3></div>
+                <div class="roster-section te-section"><h3>TE</h3></div>
+                <div class="roster-section picks-section"><h3>Draft Picks</h3></div>
+            `;
+
+            const filterActive = state.activePositions.size > 0;
+            const isFlexActive = state.activePositions.has('FLX');
+
+            const positions = {
+                QB: team.allPlayers.filter(p => p.pos === 'QB').sort((a, b) => (b.ktc || 0) - (a.ktc || 0)),
+                RB: team.allPlayers.filter(p => p.pos === 'RB').sort((a, b) => (b.ktc || 0) - (a.ktc || 0)),
+                WR: team.allPlayers.filter(p => p.pos === 'WR').sort((a, b) => (b.ktc || 0) - (a.ktc || 0)),
+                TE: team.allPlayers.filter(p => p.pos === 'TE').sort((a, b) => (b.ktc || 0) - (a.ktc || 0)),
+            };
+
+            const populate = (sel, data, creator) => {
+                const el = card.querySelector(sel);
+                const pos = sel.split('-')[0].toUpperCase().replace('.', '');
+                
+                el.style.display = 'none';
+                if (!filterActive || state.activePositions.has(pos) || (isFlexActive && ['RB', 'WR', 'TE'].includes(pos))) {
+                    el.style.display = 'block';
+                    const h3 = el.querySelector('h3');
+                    el.innerHTML = '';
+                    el.appendChild(h3);
+                    if (data && data.length > 0) {
+                        data.forEach(item => el.appendChild(creator(item, team.teamName)));
+                    } else {
+                        el.innerHTML += `<div class="text-xs text-slate-500 p-1 italic">None</div>`;
+                    }
+                }
+            };
+
+            populate('.qb-section', positions.QB, createPlayerRow);
+            populate('.rb-section', positions.RB, createPlayerRow);
+            populate('.wr-section', positions.WR, createPlayerRow);
+            populate('.te-section', positions.TE, createPlayerRow);
+            
+            const picksEl = card.querySelector('.picks-section');
+            if (picksEl) {
+                const picksH3 = picksEl.querySelector('h3');
+                picksEl.innerHTML = '';
+                picksEl.appendChild(picksH3);
+                if (team.draftPicks && team.draftPicks.length > 0) {
+                    team.draftPicks.forEach(item => picksEl.appendChild(createPickRow(item, team.teamName)));
+                } else {
+                    picksEl.innerHTML += `<div class="text-xs text-slate-500 p-1 italic">None</div>`;
+                }
+            }
+            return card;
+        }
+
+        function createEmptyTaxiRow() {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            row.innerHTML = `<span style="color: var(--color-text-tertiary); font-style: italic; font-size: 0.8rem; padding: 1.2rem 0.5rem; display: block; width: 100%; text-align: center;">Empty Slot</span>`;
+            return row;
+        }
+        
+        function createTaxiRow(item, teamName) {
+            if (item.isPlaceholder) return createEmptyTaxiRow();
+            return createPlayerRow(item, teamName);
+        }
+
+        function createPlayerRow(player, teamName) {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            row.dataset.assetId = player.id;
+            row.dataset.assetLabel = player.name;
+            row.dataset.assetKtc = player.ktc || 0;
+
+            if (state.tradeBlock[teamName]?.find(a => a.id === player.id)) {
+                row.classList.add('player-selected');
+            }
+
+            const adp = player.adp ? player.adp.toFixed(1) : '—';
+            const ktc = player.ktc || '—';
+            const slotAbbr = { 'SUPER_FLEX': 'SFLX', 'FLEX': 'FLX' };
+            const displaySlot = state.currentRosterView === 'depth' ? (slotAbbr[player.slot] || player.slot) : player.pos;
+            const teamTagHTML = player.team && player.team !== 'FA' 
+                ? `<div class="team-tag" style="background-color: ${TEAM_COLORS[player.team] || '#64748b'}; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">${player.team}</div>` 
+                : `<div class="team-tag" style="background-color: #64748b; color: white;">${player.team || 'FA'}</div>`;
+
+            const posRankColor = getPosRankColor(player.posRank);
+
+            row.innerHTML = `
+                <div class="player-main-line">
+                    <div class="player-tag" style="background-color: ${TAG_COLORS[displaySlot] || 'var(--pos-bn)'};">${displaySlot}</div>
+                    <div class="player-name">${player.name}</div>
+                </div>
+                <div class="player-meta-line">
+                    <span class="player-pos-rank" style="color: ${posRankColor}; font-weight: 400;">${player.posRank || player.pos}</span>
+                    <span class="separator">•</span>
+                    <span>Age: <span class="player-age">${player.age || '?'}</span></span>
+                    <span class="separator">•</span>
+                    ${teamTagHTML}
+                </div>
+                <div class="player-value-line">
+                    <span>KTC: <span class="value player-ktc">${ktc}</span></span>
+                    <span>ADP: <span class="value player-adp">${adp}</span></span>
+                </div>
+            `;
+            
+            const ageEl = row.querySelector('.player-age'), adpEl = row.querySelector('.player-adp'), ktcEl = row.querySelector('.player-ktc');
+            if (ageEl && player.age && player.age !== '?') ageEl.style.color = getAgeColorForRoster(player.pos, parseFloat(player.age));
+            if (adpEl && player.adp) adpEl.style.color = getAdpColorForRoster(parseFloat(adp));
+            if (ktcEl && player.ktc) ktcEl.style.color = getKtcColor(player.ktc);
+            return row;
+        }
+
+        function createPickRow(pick, teamName) {
+            const row = document.createElement('div');
+            row.className = 'pick-row';
+            row.dataset.assetId = pick.id;
+            row.dataset.assetLabel = pick.label;
+            row.dataset.assetKtc = pick.ktc || 0;
+
+            if (state.tradeBlock[teamName]?.find(a => a.id === pick.id)) {
+                row.classList.add('player-selected');
+            }
+            
+            const ktcValue = pick.ktc || '—';
+            row.innerHTML = `<span class="pick-label">${pick.label}</span><span class="pick-ktc">KTC: <span class="value">${ktcValue}</span></span>`;
+            if (pick.ktc) row.querySelector('.pick-ktc .value').style.color = getKtcColor(pick.ktc);
+            return row;
+        }
+
+        function renderTradeBlock() {
+            if (!state.isCompareMode || state.teamsToCompare.size < 2) {
+                tradeSimulator.style.display = 'none';
+                mainContent.style.paddingBottom = '1rem';
+                return;
+            }
+
+            tradeSimulator.style.display = 'block';
+            tradeSimulator.innerHTML = `
+                <div class="trade-container glass-panel">
+                    <div class="trade-header">
+                        <h3>Trade Preview</h3>
+                        <button id="clearTradeButton">Clear</button>
+                    </div>
+                    <div class="trade-body"></div>
+                </div>
+            `;
+
+            const tradeBody = tradeSimulator.querySelector('.trade-body');
+            const teamNames = Array.from(state.teamsToCompare);
+            const tradeData = {};
+
+            teamNames.forEach(name => {
+                const assets = state.tradeBlock[name] || [];
+                const totalKtc = assets.reduce((sum, asset) => sum + asset.ktc, 0);
+                tradeData[name] = { assets, totalKtc };
+            });
+
+            const totals = teamNames.map(name => tradeData[name].totalKtc);
+            const totalClasses = {};
+
+            if (teamNames.length === 2) {
+                const diff = totals[0] - totals[1];
+                if (diff > 500) {
+                    totalClasses[teamNames[0]] = 'winning';
+                    totalClasses[teamNames[1]] = 'losing';
+                } else if (diff < -500) {
+                    totalClasses[teamNames[0]] = 'losing';
+                    totalClasses[teamNames[1]] = 'winning';
+                } else {
+                    totalClasses[teamNames[0]] = 'even';
+                    totalClasses[teamNames[1]] = 'even';
+                }
+            }
+
+            let bodyHtml = '';
+            teamNames.forEach((teamName, index) => {
+                const { assets, totalKtc } = tradeData[teamName];
+                let assetsHTML = '';
+                if (assets.length > 0) {
+                    assets.forEach(asset => {
+                        const ktcColor = getKtcColor(asset.ktc);
+                        assetsHTML += `<div class="trade-asset-chip"><span>${asset.label}</span><span class="ktc" style="color: ${ktcColor}">(${asset.ktc})</span></div>`;
+                    });
+                } else {
+                    assetsHTML = `<span class="text-xs text-slate-500 p-2">Select assets...</span>`;
+                }
+                
+                const totalClass = totalClasses[teamName] || 'even';
+
+                bodyHtml += `
+                    <div class="trade-team-column">
+                        <h4>${teamName}</h4>
+                        <div class="trade-assets">${assetsHTML}</div>
+                        <div class="trade-total ${totalClass}">
+                            Total KTC: ${totalKtc}
+                        </div>
+                    </div>
+                `;
+
+                if (index < teamNames.length - 1 && teamNames.length > 1) {
+                     bodyHtml += `<div class="trade-divider"></div>`;
+                }
+            });
+            
+            tradeBody.innerHTML = bodyHtml;
+
+            document.getElementById('clearTradeButton').addEventListener('click', clearTrade);
+            mainContent.style.paddingBottom = `${tradeSimulator.offsetHeight + 40}px`;
+        }
+
+
+        // --- Player List (Ownership) Functions ---
+        async function renderPlayerList() {
+            playerListView.innerHTML = '<p class="text-center p-4">Fetching user leagues and rosters...</p>';
+            assignedLeagueColors.clear();
+            nextColorIndex = 0;
+            assignedRyColors.clear();
+            nextRyColorIndex = 0;
+
+            const userLeagues = await fetchUserLeagues(state.userId);
+            const rostersByLeague = await Promise.all(userLeagues.map(l => fetchWithCache(`${API_BASE}/league/${l.league_id}/rosters`)));
+
+            const agg = new Map();
+            rostersByLeague.forEach((rosters, idx) => {
+                const leagueName = userLeagues[idx].name;
+                const leagueAbbr = getLeagueAbbr(leagueName);
+                const myRoster = rosters.find(r => r.owner_id === state.userId || (Array.isArray(r.co_owners) && r.co_owners.includes(state.userId)));
+                if (!myRoster) return;
+                const pids = new Set((myRoster.players || []).filter(Boolean));
+                pids.forEach(pid => {
+                    if (!agg.has(pid)) agg.set(pid, new Set());
+                    agg.get(pid).add(leagueAbbr);
+                });
+            });
+
+            const section = document.createElement('div');
+            section.className = 'player-list-section';
+            
+            const header = createPlayerListHeader();
+            section.appendChild(header);
+
+            const rows = Array.from(agg.entries()).map(([pid, leagueSet]) => createPlayerListRow(pid, leagueSet, userLeagues.length)).filter(Boolean);
+            rows.sort((a, b) => {
+                const countDiff = Number(b.dataset.count || 0) - Number(a.dataset.count || 0);
+                if (countDiff !== 0) return countDiff;
+                return a.dataset.search.localeCompare(b.dataset.search);
+            });
+
+            rows.forEach(r => section.appendChild(r));
+            playerListView.innerHTML = '';
+            
+            const searchInput = document.createElement('input');
+            searchInput.id = 'playerSearch';
+            searchInput.type = 'text';
+            searchInput.placeholder = 'Filter players by name...';
+            playerListView.appendChild(searchInput);
+            playerListView.appendChild(section);
+
+            searchInput.oninput = () => {
+                const term = searchInput.value.trim().toLowerCase();
+                section.querySelectorAll('.pl-player-row:not(.pl-list-header)').forEach(r => {
+                    r.style.display = (r.dataset.search || '').includes(term) ? 'flex' : 'none';
+                });
+            };
+        }
+
+        function createPlayerListHeader() {
+            const header = document.createElement('div');
+            header.className = 'pl-player-row pl-list-header';
+            
+            const tagSpacer = document.createElement('div');
+            tagSpacer.className = 'pl-list-tag-spacer';
+            header.appendChild(tagSpacer);
+
+            const headerInfo = document.createElement('div');
+            headerInfo.className = 'pl-player-info';
+            headerInfo.innerHTML = '<div class="pl-player-name">Player & Info</div>';
+            header.appendChild(headerInfo);
+
+            const headerMeta = document.createElement('div');
+            headerMeta.className = 'pl-right-meta';
+            headerMeta.innerHTML = `
+                <span class="pl-col-count">#</span>
+                <span class="pl-col-pct">%</span>
+                <span class="pl-col-lgs">Leagues</span>
+            `;
+            header.appendChild(headerMeta);
+            
+            return header;
+        }
+
+        function createPlayerListRow(pid, leagueSet, totalLeagues) {
+            const p = state.players[pid];
+            if (!p) return null;
+
+            const pos = p.position || (p.fantasy_positions && p.fantasy_positions[0]) || '';
+            const first = (p.first_name || '').trim();
+            const last = (p.last_name || '').trim();
+            let displayName = `${first} ${last}`.trim() || pid;
+            if (first && last) displayName = `${first.charAt(0)}. ${last}`;
+            if (displayName.length > 14) displayName = displayName.substring(0, 14) + '…';
+
+
+            const row = document.createElement('div');
+            row.className = 'pl-player-row';
+            row.dataset.search = `${first.toLowerCase()} ${last.toLowerCase()} ${displayName.toLowerCase()}`;
+            row.dataset.count = leagueSet.size;
+
+            const valueData = state.isSuperflex ? state.sflxData[pid] : state.oneQbData[pid];
+            const ageFromSheet = valueData?.age;
+            const formattedAge = (typeof ageFromSheet === 'number') ? ageFromSheet.toFixed(1) : (p.age ? Number(p.age).toFixed(1) : '?');
+
+            const detailParts = [];
+            const adp1QB = state.oneQbData[pid]?.adp;
+            const adpSFLX = state.sflxData[pid]?.adp;
+            const rookieYear = deriveRookieYear(p);
+            if (adp1QB) detailParts.push(`ADP <span style="color:${getAdpColorForRoster(adp1QB) || 'inherit'}">${adp1QB.toFixed(1)}</span>`);
+            if (adpSFLX) detailParts.push(`SFLX <span style="color:${getAdpColorForRoster(adpSFLX) || 'inherit'}">${adpSFLX.toFixed(1)}</span>`);
+            if (rookieYear) {
+                const ryAbbr = String(rookieYear).slice(-2);
+                detailParts.push(`RY-<span style="color:${getRyColor(rookieYear) || 'inherit'}">${ryAbbr}</span>`);
+            }
+            const detailsHTML = detailParts.join(' • ');
+
+            const count = leagueSet.size;
+            const pctVal = Math.round((count / totalLeagues) * 100);
+            let countClass, pctClass;
+            if (pctVal >= 80) { countClass = 'pl-count-high'; pctClass = 'pl-pct-high'; }
+            else if (pctVal >= 50) { countClass = 'pl-count-mid'; pctClass = 'pl-pct-mid'; }
+            else { countClass = 'pl-count-low'; pctClass = 'pl-pct-low'; }
+
+            const sortedAbbrs = Array.from(leagueSet).sort();
+            const leaguesHTML = sortedAbbrs.map((abbr, index) => `<span style="color: ${getLeagueColor(abbr)}">${abbr}</span>`).join(', ');
+
+            row.innerHTML = `
+                <div class="pl-list-tag" style="background-color: ${TAG_COLORS[pos] || 'var(--pos-bn)'};">${pos}</div>
+                <div class="pl-player-info">
+                    <div class="pl-player-name">
+                        <span>${displayName}</span>
+                        <div class="team-tag" style="background-color: ${TEAM_COLORS[p.team] || '#64748b'}; color: white;">${p.team || 'FA'}</div>
+                        ${formattedAge !== '?' ? `<span style="font-size: 0.8rem; color: var(--color-text-tertiary);">Age: <span style="color:${getAgeColorForRoster(p.position, parseFloat(formattedAge)) || 'inherit'}">${formattedAge}</span></span>` : ''}
+                    </div>
+                    <div class="pl-player-details">${detailsHTML}</div>
+                </div>
+                <div class="pl-right-meta">
+                    <span class="pl-col-count ${countClass}">${count}</span>
+                    <span class="pl-col-pct ${pctClass}">${pctVal}%</span>
+                    <span class="pl-col-lgs">${leaguesHTML}</span>
+                </div>
+            `;
+            
+            return row;
+        }
+
+        // --- Formatting Helpers ---
+        function deriveRookieYear(player) {
+            if (!player) return null;
+            let ry = player.metadata?.rookie_year ? Number(player.metadata.rookie_year) : 0;
+            const exp = player.years_exp;
+            const expNum = (exp === '' || exp === null || exp === undefined) ? null : Number(exp);
+            if ((!ry || ry === 0) && expNum === 0) {
+                return new Date().getFullYear();
+            }
+            return ry > 0 ? ry : null;
+        }
+        function getPosRankColor(posRank) {
+            if (!posRank || typeof posRank !== 'string') return 'var(--color-text-secondary)';
+            const position = posRank.split('·')[0];
+            const colors = {
+                QB: '#FF7AB2',
+                RB: '#bbf7e0',
+                WR: '#A0C2F7',
+                TE: '#ffae58'
+            };
+            return colors[position] || 'var(--color-text-secondary)';
+        }
+        function getKtcColor(v){const s=[{v:9e3,c:"#00EEB6"},{v:8e3,c:"#14D7CB"},{v:7e3,c:"#0599AA"},{v:6e3,c:"#03a8ce"},{v:5500,c:"#0690DC"},{v:5e3,c:"#066CDC"},{v:4500,c:"#1350fd"},{v:4e3,c:"#5e41ff"},{v:3750,c:"#7158ff"},{v:3500,c:"#964eff"},{v:3250,c:"#9200ff"},{v:3e3,c:"#b70fff"},{v:2750,c:"#ba00cc"},{v:2500,c:"#e800ff"},{v:2250,c:"#db00af"},{v:2e3,c:"#c70097"},{v:0,c:"#FF0080"}];if(v===null||v===0)return"#e0e6ed";for(const t of s)if(v>=t.v)return t.c;return s[s.length-1].c}
+        function getAdpColorForRoster(a){const s=[{v:12,c:"#00EEB6"},{v:24,c:"#14D7CB"},{v:36,c:"#0599AA"},{v:48,c:"#03a8ce"},{v:60,c:"#0690DC"},{v:72,c:"#066CDC"},{v:84,c:"#1350fd"},{v:96,c:"#5e41ff"},{v:108,c:"#7158ff"},{v:120,c:"#964eff"},{v:144,c:"#9200ff"},{v:168,c:"#b70fff"},{v:192,c:"#ba00cc"},{v:216,c:"#e800ff"},{v:240,c:"#db00af"},{v:280,c:"#c70097"},{v:320,c:"#FF0080"}];if(!a||a===0)return null;for(const t of s)if(a<=t.v)return t.c;return s[s.length-1].c}
+        function getAgeColorForRoster(p,a){const s={wrTe:[{v:22.5,c:"#00ffc4"},{v:25,c:"#85fff3"},{v:26,c:"#56dfe8"},{v:27,c:"#7dd1ff"},{v:29,c:"#89a3ff"},{v:30,c:"#957cff"},{v:31,c:"#a642ff"},{v:32,c:"#cf60ff"},{v:33,c:"#ff6fe1"}],rb:[{v:22.5,c:"#00ffc4"},{v:24,c:"#85fff3"},{v:25,c:"#56dfe8"},{v:26,c:"#7dd1ff"},{v:27,c:"#89a3ff"},{v:28,c:"#957cff"},{v:29,c:"#a642ff"},{v:30,c:"#cf60ff"},{v:31,c:"#ff6fe1"}],qb:[{v:25.5,c:"#00ffc4"},{v:28,c:"#85fff3"},{v:29,c:"#7dd1ff"},{v:31,c:"#48a6ff"},{v:33,c:"#957cff"},{v:36,c:"#a642ff"},{v:40,c:"#cf60ff"},{v:44,c:"#ff6fe1"}]};let sc=p==="WR"||p==="TE"?s.wrTe:p==="RB"?s.rb:p==="QB"?s.qb:null;if(!sc||!a||a===0)return null;for(const t of sc)if(a<=t.v)return t.c;return sc[sc.length-1].c}
+       function getLeagueAbbr(name) {
+            if (!name) return "LG";
+            const trimmed = name.trim();                       const normalized = trimmed.toLowerCase().replace(/[.,()]/g, '');
+            if (LEAGUE_ABBR_OVERRIDES[normalized]) return LEAGUE_ABBR_OVERRIDES[normalized];
+            if (trimmed.length <= 4 && !trimmed.includes(' ') && !trimmed.includes('-')) return trimmed.toUpperCase();
+            const words = trimmed.split(/[\s-]+/);
+            let abbr = words.map(w => w[0] || '').join('');
+            return abbr.toUpperCase();
+        }
+         function getLeagueColor(abbr) { if (!assignedLeagueColors.has(abbr)) { assignedLeagueColors.set(abbr, LEAGUE_COLOR_PALETTE[nextColorIndex % LEAGUE_COLOR_PALETTE.length]); nextColorIndex++; } return assignedLeagueColors.get(abbr); }
+        function getRyColor(year) { if (!assignedRyColors.has(year)) { assignedRyColors.set(year, RY_COLOR_PALETTE[nextRyColorIndex % RY_COLOR_PALETTE.length]); nextRyColorIndex++; } return assignedRyColors.get(year); }
+        function ordinalSuffix(i){ const j=i%10, k=i%100; if(j===1&&k!==11) return i+'st'; if(j===2&&k!==12) return i+'nd'; if(j===3&&k!==13) return i+'rd'; return i+'th'; }
+
+        // --- Utility Functions ---
+        function setLoading(isLoading, message = 'Loading...') {
+            welcomeScreen.classList.add('hidden');
+            const buttons = [fetchRostersButton, fetchOwnershipButton];
+            if (isLoading) {
+                loadingIndicator.textContent = message;
+                loadingIndicator.classList.remove('hidden');
+                buttons.forEach(btn => { btn.disabled = true; btn.classList.add('opacity-50', 'cursor-not-allowed'); });
+            } else {
+                loadingIndicator.classList.add('hidden');
+                buttons.forEach(btn => { btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed'); });
+            }
+        }
+
+        function handleError(error, username) {
+            console.error(`Error for user ${username}:`, error);
+            welcomeScreen.classList.remove('hidden');
+            rosterView.classList.add('hidden');
+            playerListView.classList.add('hidden');
+            welcomeScreen.innerHTML = `<h2 class="text-red-400">Error</h2><p>Could not fetch data for user: ${username}</p><p>${error.message}</p>`;
+        }
+
+        async function fetchWithCache(url) {
+            if (state.cache[url]) return state.cache[url];
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`API request failed: ${response.statusText}`);
+            const data = await response.json();
+            state.cache[url] = data;
+            return data;
+        }
+    </script>
+</body>
+</html>
